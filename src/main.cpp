@@ -182,8 +182,38 @@ void setupHardware() {
 }
 
 void setupWiFi() {
-    Serial.println("📶 Setting up WiFi Access Point...");
+    Serial.println("📶 Setting up WiFi...");
     
+    // Try to connect to stored WiFi credentials first
+    String storedSSID = preferences.getString("wifi_ssid", "");
+    String storedPassword = preferences.getString("wifi_password", "");
+    
+    if (storedSSID.length() > 0) {
+        Serial.printf("🔄 Attempting to connect to stored WiFi: %s\n", storedSSID.c_str());
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(storedSSID.c_str(), storedPassword.c_str());
+        
+        // Wait up to 15 seconds for connection
+        int attempts = 0;
+        while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+            delay(500);
+            Serial.print(".");
+            attempts++;
+        }
+        
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\n✅ Connected to WiFi!");
+            Serial.printf("📱 IP Address: %s\n", WiFi.localIP().toString().c_str());
+            wifiConnected = true;
+            setupTimeSync();
+            return;
+        } else {
+            Serial.println("\n❌ Failed to connect to stored WiFi");
+        }
+    }
+    
+    // Fall back to Access Point mode
+    Serial.println("📶 Starting WiFi Access Point...");
     WiFi.mode(WIFI_AP);
     
     bool apStarted = WiFi.softAP(AP_SSID, AP_PASSWORD);
@@ -433,6 +463,136 @@ void setupWebServer() {
         String response;
         serializeJson(doc, response);
         request->send(200, "application/json", response);
+    });
+
+    // AI Configuration endpoints
+    server.on("/api/ai/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(1024);
+        
+        doc["enabled"] = preferences.getBool("ai_enabled", false);
+        doc["provider"] = preferences.getString("ai_provider", "simple");
+        doc["apiKey"] = preferences.getString("ai_api_key", "");
+        doc["delayMinutes"] = preferences.getInt("ai_delay_min", 10);
+        doc["personality"] = preferences.getString("ai_personality", "supportive");
+        doc["requireQuestions"] = preferences.getBool("ai_questions", true);
+        doc["breathingExercise"] = preferences.getBool("ai_breathing", true);
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
+    server.on("/api/ai/config", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // Handle POST data
+    }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, (char*)data);
+        
+        preferences.putBool("ai_enabled", doc["enabled"].as<bool>());
+        preferences.putString("ai_provider", doc["provider"].as<String>());
+        preferences.putString("ai_api_key", doc["apiKey"].as<String>());
+        preferences.putInt("ai_delay_min", doc["delayMinutes"].as<int>());
+        preferences.putString("ai_personality", doc["personality"].as<String>());
+        preferences.putBool("ai_questions", doc["requireQuestions"].as<bool>());
+        preferences.putBool("ai_breathing", doc["breathingExercise"].as<bool>());
+        
+        DynamicJsonDocument response(256);
+        response["success"] = true;
+        response["message"] = "AI configuration saved";
+        
+        String responseStr;
+        serializeJson(response, responseStr);
+        request->send(200, "application/json", responseStr);
+    });
+
+    // WiFi Configuration endpoints
+    server.on("/api/wifi/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(512);
+        
+        doc["connected"] = (WiFi.status() == WL_CONNECTED);
+        if (WiFi.status() == WL_CONNECTED) {
+            doc["ssid"] = WiFi.SSID();
+            doc["ip"] = WiFi.localIP().toString();
+            doc["rssi"] = WiFi.RSSI();
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
+    server.on("/api/wifi/connect", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // Handle POST data
+    }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(512);
+        deserializeJson(doc, (char*)data);
+        
+        String ssid = doc["ssid"].as<String>();
+        String password = doc["password"].as<String>();
+        
+        if (ssid.length() > 0) {
+            // Store WiFi credentials
+            preferences.putString("wifi_ssid", ssid);
+            preferences.putString("wifi_password", password);
+            
+            // Attempt connection
+            WiFi.begin(ssid.c_str(), password.c_str());
+            
+            DynamicJsonDocument response(256);
+            response["success"] = true;
+            response["message"] = "WiFi connection initiated";
+            
+            String responseStr;
+            serializeJson(response, responseStr);
+            request->send(200, "application/json", responseStr);
+        } else {
+            request->send(400, "application/json", "{\"success\":false,\"message\":\"Invalid SSID\"}");
+        }
+    });
+
+    // Security Configuration endpoints
+    server.on("/api/security/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(1024);
+        
+        // Get allowed networks (stored as JSON string)
+        String allowedNetworksStr = preferences.getString("allowed_networks", "[]");
+        String blockedNetworksStr = preferences.getString("blocked_networks", "[]");
+        
+        DynamicJsonDocument allowedDoc(512);
+        DynamicJsonDocument blockedDoc(512);
+        deserializeJson(allowedDoc, allowedNetworksStr);
+        deserializeJson(blockedDoc, blockedNetworksStr);
+        
+        doc["allowedNetworks"] = allowedDoc.as<JsonArray>();
+        doc["blockedNetworks"] = blockedDoc.as<JsonArray>();
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
+    server.on("/api/security/config", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // Handle POST data
+    }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, (char*)data);
+        
+        // Save network lists as JSON strings
+        String allowedStr;
+        String blockedStr;
+        serializeJson(doc["allowedNetworks"], allowedStr);
+        serializeJson(doc["blockedNetworks"], blockedStr);
+        
+        preferences.putString("allowed_networks", allowedStr);
+        preferences.putString("blocked_networks", blockedStr);
+        
+        DynamicJsonDocument response(256);
+        response["success"] = true;
+        response["message"] = "Security configuration saved";
+        
+        String responseStr;
+        serializeJson(response, responseStr);
+        request->send(200, "application/json", responseStr);
     });
     
     // Handle 404

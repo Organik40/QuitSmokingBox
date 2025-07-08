@@ -31,6 +31,8 @@
 // Emergency Settings
 #define EMERGENCY_UNLOCK_PENALTY 15  // minutes added to next timer
 #define MAX_EMERGENCY_UNLOCKS_PER_DAY 3
+#define DEFAULT_EMERGENCY_DELAY_MINUTES 5  // cooling-off period for normal mode
+#define AI_EMERGENCY_DELAY_MINUTES 10      // AI gatekeeper session minimum time
 
 // Button Settings
 #define BUTTON_DEBOUNCE_DELAY 50 // Debounce delay for button in milliseconds

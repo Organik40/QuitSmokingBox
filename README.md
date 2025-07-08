@@ -37,7 +37,8 @@ An open-source, ESP32-powered timer box designed to help people control their sm
 
 ### Smart Features
 - **Progress tracking** with statistics and achievements
-- **Emergency unlock limits** with penalty system
+- **Emergency unlock limits** with penalty system and 5-minute cooling-off period
+- **AI Emergency Gatekeeper** (optional) - 10-minute conversation system to dissuade emergency unlocks
 - **Data persistence** using ESP32 preferences
 - **Beautiful web interface** with calm, organic design
 - **Real-time countdown** on both display and web interface
@@ -45,15 +46,29 @@ An open-source, ESP32-powered timer box designed to help people control their sm
 - **Scheduled unlocks** with NTP time synchronization
 - **Intelligent countdown display** showing days/hours for long periods
 - **Web-based schedule configuration** with time picker and day selection
+- **WiFi connectivity** with configurable network settings
+- **Network-based emergency restrictions** (block on public WiFi, allow on safe networks)
 
 ### Web Interface Features
 - 📊 **Real-time status monitoring**
 - ⏱️ **Timer configuration** with dropdown menus
 - 🎯 **Quick action buttons** for manual control
 - 📈 **Progress statistics** showing money saved and cigarettes avoided
-- 🚨 **Emergency unlock** with penalty tracking
+- 🚨 **Emergency unlock** with 5-minute cooling-off period or optional AI gatekeeper
+- 🤖 **AI Emergency Gatekeeper** - Intelligent conversation system to help resist cravings
+- ⚙️ **Settings page** for WiFi, AI configuration, and network security
 - 🔄 **Progress reset** functionality
 - 🧪 **Hardware testing** tools
+
+### AI Emergency Gatekeeper (Optional)
+- **10-minute minimum conversation** before emergency unlock is allowed
+- **Multiple AI personalities**: Supportive Coach, Strict Counselor, Understanding Friend, Professional Therapist
+- **Intelligent responses** based on user triggers (stress, boredom, anger, habits)
+- **Coping strategies** including breathing exercises and alternative activities
+- **Network restrictions** - can block emergency unlocks on public WiFi or specific networks
+- **Configurable providers**: OpenAI GPT, Local AI, or Simple rule-based responses
+- **Reflection questions** to encourage deeper thinking about the craving
+- **Test mode** to try the AI system without actual emergency unlock
 
 ## 🔧 Hardware Requirements
 
@@ -199,7 +214,25 @@ See [docs/assembly_guide.md](docs/assembly_guide.md) for complete assembly instr
 1. **Use the box** when you need access
 2. **Monitor progress** via OLED display
 3. **Check statistics** on web interface
-4. **Emergency unlock** available from inside if needed
+4. **Emergency unlock** available with built-in deterrents
+
+### Emergency Unlock Modes
+
+#### Normal Mode (Default)
+- **5-minute cooling-off period** with countdown timer
+- **Reflection prompts** to encourage reconsidering
+- **Simple but effective** delay to reduce impulsive unlocks
+- **No additional setup required**
+
+#### AI Gatekeeper Mode (Optional)
+- **10-minute interactive conversation** with AI
+- **Personalized responses** based on your triggers and situation
+- **Active discouragement** with coping strategies and alternatives
+- **Breathing exercises and mindfulness** techniques
+- **Network-based restrictions** for high-risk environments
+- **Requires configuration** in Settings page
+
+Both modes include penalty time added to your next timer interval.
 
 ## 🌐 Web Interface
 
@@ -276,6 +309,8 @@ All STL files are included in the `3d_models/` directory:
 ```cpp
 #define EMERGENCY_UNLOCK_PENALTY 15  // minutes
 #define MAX_EMERGENCY_UNLOCKS_PER_DAY 3
+#define DEFAULT_EMERGENCY_DELAY_MINUTES 5  // cooling-off period
+#define AI_EMERGENCY_DELAY_MINUTES 10      // AI gatekeeper session
 ```
 
 ### Hardware Pins

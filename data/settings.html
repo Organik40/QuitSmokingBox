@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Quit Smoking Timer Box</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">⚙️</div>
+                <h1>Settings</h1>
+            </div>
+            <nav class="nav-buttons">
+                <a href="/" class="btn-secondary">🏠 Home</a>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <!-- WiFi Configuration Card -->
+            <div class="card config-card">
+                <h2>📶 WiFi Configuration</h2>
+                <form id="wifiForm">
+                    <div class="form-group">
+                        <label for="wifiSSID">WiFi Network (SSID):</label>
+                        <input type="text" id="wifiSSID" name="wifiSSID" 
+                               placeholder="Enter WiFi network name" class="input-field">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wifiPassword">WiFi Password:</label>
+                        <input type="password" id="wifiPassword" name="wifiPassword" 
+                               placeholder="Enter WiFi password" class="input-field">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Current Status:</label>
+                        <div class="wifi-status" id="wifiStatus">
+                            <span class="status-indicator" id="wifiIndicator">🔴</span>
+                            <span id="wifiStatusText">Not Connected</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">📡 Connect WiFi</button>
+                </form>
+            </div>
+
+            <!-- AI Gatekeeper Configuration Card -->
+            <div class="card config-card">
+                <h2>🤖 AI Emergency Gatekeeper</h2>
+                <form id="aiForm">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableAI" name="enableAI">
+                            <span class="checkmark"></span>
+                            Enable AI Gatekeeper for Emergency Unlocks
+                        </label>
+                        <small class="help-text">AI will try to dissuade emergency unlocks and enforce 10-minute delay</small>
+                    </div>
+
+                    <div class="ai-config" id="aiConfig" style="display: none;">
+                        <div class="form-group">
+                            <label for="aiProvider">AI Provider:</label>
+                            <select id="aiProvider" name="aiProvider" class="dropdown">
+                                <option value="openai">OpenAI GPT</option>
+                                <option value="local">Local AI (Offline)</option>
+                                <option value="simple">Simple Rule-based</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="apiKeyGroup">
+                            <label for="aiApiKey">API Key:</label>
+                            <input type="password" id="aiApiKey" name="aiApiKey" 
+                                   placeholder="Enter your OpenAI API key" class="input-field">
+                            <small class="help-text">Required for OpenAI. Keep secure!</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="delayMinutes">Minimum Delay (minutes):</label>
+                            <input type="number" id="delayMinutes" name="delayMinutes" 
+                                   min="5" max="60" value="10" class="input-field">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="aiPersonality">AI Personality:</label>
+                            <select id="aiPersonality" name="aiPersonality" class="dropdown">
+                                <option value="supportive">Supportive Coach</option>
+                                <option value="strict">Strict Counselor</option>
+                                <option value="friend">Understanding Friend</option>
+                                <option value="professional">Professional Therapist</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="requireQuestions" name="requireQuestions" checked>
+                                <span class="checkmark"></span>
+                                Require reflection questions
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="breathingExercise" name="breathingExercise" checked>
+                                <span class="checkmark"></span>
+                                Force breathing exercises
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">🤖 Save AI Settings</button>
+                </form>
+            </div>
+
+            <!-- Network Security Card -->
+            <div class="card config-card">
+                <h2>🔒 Security Settings</h2>
+                <form id="securityForm">
+                    <div class="form-group">
+                        <label>Allowed Networks for Emergency:</label>
+                        <div class="network-list" id="allowedNetworks">
+                            <div class="network-item">
+                                <input type="text" placeholder="Home WiFi" class="input-field network-input">
+                                <button type="button" class="btn-small remove-network">❌</button>
+                            </div>
+                        </div>
+                        <button type="button" id="addNetwork" class="btn-secondary">➕ Add Network</button>
+                        <small class="help-text">Emergency unlocks only allowed on these networks</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Blocked Networks:</label>
+                        <div class="network-list" id="blockedNetworks">
+                            <div class="network-item">
+                                <input type="text" placeholder="Public WiFi" class="input-field network-input">
+                                <button type="button" class="btn-small remove-network">❌</button>
+                            </div>
+                        </div>
+                        <button type="button" id="addBlockedNetwork" class="btn-secondary">➕ Add Blocked Network</button>
+                        <small class="help-text">Emergency unlocks blocked on these networks</small>
+                    </div>
+
+                    <button type="submit" class="btn-primary">🔒 Save Security Settings</button>
+                </form>
+            </div>
+
+            <!-- Test AI Card -->
+            <div class="card actions-card">
+                <h2>🧪 Test AI Gatekeeper</h2>
+                <p>Test the AI emergency system without actually unlocking the box.</p>
+                <button id="testAI" class="btn-action test-btn">🤖 Test AI Session</button>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>Made with ❤️ for a healthier lifestyle</p>
+            <p class="version">v1.0.0 - Open Source</p>
+        </footer>
+    </div>
+
+    <!-- AI Gatekeeper Modal -->
+    <div id="aiModal" class="modal ai-modal">
+        <div class="modal-content ai-modal-content">
+            <h3>🤖 AI Emergency Gatekeeper</h3>
+            <div id="aiConversation" class="ai-conversation"></div>
+            <div id="aiTimer" class="ai-timer">⏰ Session time: <span id="sessionTime">10:00</span></div>
+            <div id="aiInput" class="ai-input-area">
+                <input type="text" id="aiUserInput" placeholder="Type your response..." class="input-field">
+                <button id="aiSend" class="btn-primary">Send</button>
+            </div>
+            <div class="ai-actions">
+                <button id="aiCancel" class="btn-secondary">Cancel</button>
+                <button id="aiComplete" class="btn-primary" disabled>Complete Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/settings.js"></script>
+</body>
+</html>

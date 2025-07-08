@@ -25,12 +25,7 @@ class SmokingTimerBox {
         });
 
         document.getElementById('emergencyBtn').addEventListener('click', () => {
-            this.showConfirmModal('Emergency Unlock', 
-                'Emergency unlock will add penalty time to your next interval. Continue?', 
-                () => {
-                    this.emergencyUnlock();
-                }
-            );
+            this.handleEmergencyUnlock();
         });
 
         document.getElementById('resetBtn').addEventListener('click', () => {
@@ -385,6 +380,336 @@ class SmokingTimerBox {
             clearInterval(this.updateInterval);
             this.updateInterval = null;
         }
+    }
+
+    async handleEmergencyUnlock() {
+        // First check if AI gatekeeper is enabled
+        const aiSettings = await this.apiCall('/api/ai/config');
+        
+        if (aiSettings && aiSettings.enabled) {
+            this.startAIEmergencySession();
+        } else {
+            // Normal emergency unlock with 5-minute delay
+            this.startNormalEmergencyDelay();
+        }
+    }
+
+    startNormalEmergencyDelay() {
+        const delayMinutes = 5; // Default 5-minute delay for normal mode
+        
+        this.showConfirmModal('Emergency Unlock', 
+            `Emergency unlock requires a ${delayMinutes}-minute cooling-off period. This will add penalty time to your next interval. Continue?`, 
+            () => {
+                this.startEmergencyCountdown(delayMinutes);
+            }
+        );
+    }
+
+    startEmergencyCountdown(delayMinutes) {
+        const startTime = Date.now();
+        const delayMs = delayMinutes * 60 * 1000;
+        
+        // Create countdown modal
+        const countdownModal = document.createElement('div');
+        countdownModal.className = 'modal';
+        countdownModal.style.display = 'flex';
+        countdownModal.innerHTML = `
+            <div class="modal-content">
+                <h3>⏰ Emergency Cooling-Off Period</h3>
+                <div style="text-align: center; padding: 20px;">
+                    <p style="margin-bottom: 20px;">Take this time to reconsider. The box will unlock when the timer reaches zero.</p>
+                    <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color); margin: 20px 0;">
+                        <span id="emergencyCountdown">${delayMinutes}:00</span>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">
+                        💭 Consider: What triggered this need? Can you try a healthier alternative?
+                    </p>
+                </div>
+                <div class="modal-buttons">
+                    <button id="cancelEmergency" class="btn-secondary">Cancel</button>
+                    <button id="proceedEmergency" class="btn-primary" disabled>Unlock Box</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(countdownModal);
+        
+        // Cancel button
+        countdownModal.querySelector('#cancelEmergency').onclick = () => {
+            clearInterval(this.emergencyTimer);
+            countdownModal.remove();
+        };
+        
+        // Proceed button (enabled after countdown)
+        const proceedBtn = countdownModal.querySelector('#proceedEmergency');
+        proceedBtn.onclick = () => {
+            clearInterval(this.emergencyTimer);
+            countdownModal.remove();
+            this.emergencyUnlock();
+        };
+        
+        // Countdown timer
+        this.emergencyTimer = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const remaining = delayMs - elapsed;
+            
+            if (remaining <= 0) {
+                document.getElementById('emergencyCountdown').textContent = '0:00';
+                proceedBtn.disabled = false;
+                proceedBtn.textContent = 'Unlock Now';
+                clearInterval(this.emergencyTimer);
+            } else {
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                document.getElementById('emergencyCountdown').textContent = 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    startAIEmergencySession() {
+        this.openAIEmergencyModal();
+        this.initializeAIEmergencySession();
+    }
+
+    openAIEmergencyModal() {
+        document.getElementById('aiEmergencyModal').style.display = 'flex';
+        this.aiEmergencySessionStartTime = Date.now();
+        this.aiEmergencySessionActive = true;
+        this.aiEmergencyMessageCount = 0;
+        this.startAIEmergencyTimer();
+        this.bindAIEmergencyEvents();
+    }
+
+    bindAIEmergencyEvents() {
+        // Bind event listeners for AI emergency modal
+        document.getElementById('aiEmergencySend').onclick = () => this.sendAIEmergencyMessage();
+        document.getElementById('aiEmergencyUserInput').onkeypress = (e) => {
+            if (e.key === 'Enter') this.sendAIEmergencyMessage();
+        };
+        document.getElementById('aiEmergencyCancel').onclick = () => this.closeAIEmergencyModal();
+        document.getElementById('aiEmergencyComplete').onclick = () => this.completeAIEmergencySession();
+    }
+
+    closeAIEmergencyModal() {
+        document.getElementById('aiEmergencyModal').style.display = 'none';
+        this.aiEmergencySessionActive = false;
+        this.clearAIEmergencyConversation();
+        if (this.aiEmergencyTimerInterval) {
+            clearInterval(this.aiEmergencyTimerInterval);
+        }
+    }
+
+    async initializeAIEmergencySession() {
+        const aiSettings = await this.apiCall('/api/ai/config');
+        const personality = aiSettings?.personality || 'supportive';
+        
+        const conversation = document.getElementById('aiEmergencyConversation');
+        
+        // Initial AI message
+        const welcomeMessage = this.getEmergencyWelcomeMessage(personality);
+        this.addAIEmergencyMessage(welcomeMessage);
+
+        // Wait a moment, then ask the first question
+        setTimeout(() => {
+            const firstQuestion = this.getEmergencyFirstQuestion(personality);
+            this.addAIEmergencyMessage(firstQuestion);
+        }, 2000);
+
+        // Start breathing exercise if enabled
+        if (aiSettings?.breathingExercise) {
+            setTimeout(() => {
+                this.startBreathingExercise();
+            }, 5000);
+        }
+    }
+
+    getEmergencyWelcomeMessage(personality) {
+        const messages = {
+            supportive: "I can see you're going through a difficult moment. I'm here to help you through this craving. You're not alone in this journey. 💙",
+            strict: "Stop right there. Before you make a decision you might regret, let's talk about what's really happening here. You've come too far to give up now.",
+            friend: "Hey, I notice you're having a tough time. That's okay - we all have these moments. Let's chat about what's going on. I believe in you. 🤗",
+            professional: "I understand you're experiencing a strong craving. This is a normal part of recovery. Let's work through this systematically and find healthier ways to cope."
+        };
+        return messages[personality] || messages.supportive;
+    }
+
+    getEmergencyFirstQuestion(personality) {
+        const questions = {
+            supportive: "Can you tell me what happened just before this craving hit? Sometimes identifying the trigger helps us understand it better.",
+            strict: "What exactly triggered this craving? Be honest - was it stress, boredom, habit, or something else? We need to face this head-on.",
+            friend: "What's been happening today that brought you to this point? No judgment here - just want to understand so I can help.",
+            professional: "Let's identify the immediate trigger. Was this emotional (stress, anxiety), environmental (certain location), or social (seeing others smoke)?"
+        };
+        return questions[personality] || questions.supportive;
+    }
+
+    startAIEmergencyTimer() {
+        const timerElement = document.getElementById('emergencySessionTime');
+        const delayMinutes = 10; // Default to 10 minutes
+        
+        this.aiEmergencyTimerInterval = setInterval(() => {
+            if (!this.aiEmergencySessionActive) {
+                clearInterval(this.aiEmergencyTimerInterval);
+                return;
+            }
+
+            const elapsed = Date.now() - this.aiEmergencySessionStartTime;
+            const remaining = (delayMinutes * 60 * 1000) - elapsed;
+
+            if (remaining <= 0) {
+                timerElement.textContent = '0:00';
+                document.getElementById('aiEmergencyComplete').disabled = false;
+                this.addAIEmergencyMessage("The minimum session time is complete. You can now choose to proceed with the emergency unlock, but I encourage you to continue our conversation. How are you feeling right now?");
+                clearInterval(this.aiEmergencyTimerInterval);
+            } else {
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    sendAIEmergencyMessage() {
+        const input = document.getElementById('aiEmergencyUserInput');
+        const message = input.value.trim();
+        
+        if (!message) return;
+
+        this.addUserEmergencyMessage(message);
+        input.value = '';
+        this.aiEmergencyMessageCount++;
+
+        // Generate AI response after a brief delay
+        setTimeout(() => {
+            this.generateAIEmergencyResponse(message);
+        }, 1000 + Math.random() * 2000);
+    }
+
+    addAIEmergencyMessage(message) {
+        const conversation = document.getElementById('aiEmergencyConversation');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'ai-message';
+        messageDiv.innerHTML = `<div class="message-content">🤖 ${message}</div>`;
+        conversation.appendChild(messageDiv);
+        conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    addUserEmergencyMessage(message) {
+        const conversation = document.getElementById('aiEmergencyConversation');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'user-message';
+        messageDiv.innerHTML = `<div class="message-content">👤 ${message}</div>`;
+        conversation.appendChild(messageDiv);
+        conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    generateAIEmergencyResponse(userMessage) {
+        const lowerMessage = userMessage.toLowerCase();
+        let response;
+
+        // AI tries to dissuade and offer alternatives
+        if (lowerMessage.includes('need') && lowerMessage.includes('cigarette')) {
+            response = "I hear that you feel like you need a cigarette, but let's challenge that thought. Your body doesn't actually need nicotine - that's the addiction talking. What you might need is a way to cope with what you're feeling right now. What if we tried something else for just 5 minutes?";
+        } else if (lowerMessage.includes('stress') || lowerMessage.includes('anxiety')) {
+            response = "Stress and anxiety are tough, but smoking will only provide temporary relief and add guilt afterward. Have you tried the 4-7-8 breathing technique? Breathe in for 4, hold for 7, exhale for 8. It can be more effective than nicotine for stress relief.";
+        } else if (lowerMessage.includes('angry') || lowerMessage.includes('frustrated')) {
+            response = "Anger and frustration are valid emotions, but using cigarettes to cope will just add more frustration later when you realize you broke your streak. What if you did 10 jumping jacks or stepped outside for fresh air instead?";
+        } else if (lowerMessage.includes('bored')) {
+            response = "Boredom is a common trigger, but it's also an opportunity. Instead of filling the void with smoke, what if you called someone you care about, listened to a favorite song, or did a quick creative task? The boredom will pass either way.";
+        } else if (lowerMessage.includes('habit') || lowerMessage.includes('routine')) {
+            response = "Habits are powerful, but they can be changed. You're in the process of building a new, healthier routine. What usually came after smoking in your old routine? Let's find a healthier replacement for that part.";
+        } else {
+            // General responses that try to dissuade
+            const responses = [
+                "I understand this is difficult. But think about tomorrow morning - would you rather wake up proud of staying strong, or disappointed that you gave in? You have the power to choose.",
+                "You've already proven you can resist cravings - you're here talking to me instead of immediately smoking. That shows incredible strength. What would it take to continue showing that strength for just a few more minutes?",
+                "This feeling will pass whether you smoke or not. The difference is that if you don't smoke, you'll feel proud and your streak continues. If you do smoke, you'll feel guilty and have to start over. Which future do you prefer?",
+                "Let's be honest - has smoking ever actually solved the underlying problem that's bothering you right now? Or does it just distract you temporarily while adding new problems?",
+                "You quit for important reasons. What were they? Are those reasons still important to you today?",
+                "Right now, your brain is trying to trick you into thinking you need this. But you've been proving for days/weeks that you don't actually need cigarettes. Trust the progress you've already made."
+            ];
+            response = responses[Math.floor(Math.random() * responses.length)];
+        }
+
+        this.addAIEmergencyMessage(response);
+
+        // Occasionally offer specific coping strategies
+        if (this.aiEmergencyMessageCount % 3 === 0) {
+            setTimeout(() => {
+                this.offerCopingStrategy();
+            }, 3000);
+        }
+    }
+
+    offerCopingStrategy() {
+        const strategies = [
+            "Quick coping idea: Try the 5-4-3-2-1 grounding technique. Name 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, and 1 you can taste. This can help reset your focus.",
+            "Here's something that might help: Drink a large glass of cold water slowly. It gives your hands and mouth something to do, and hydration can sometimes reduce cravings.",
+            "Alternative action: Do 20 deep breaths while walking around your space. Movement + breathing can be more effective than nicotine for managing stress.",
+            "Try this: Text or call someone who supports your quit journey. Social connection often satisfies the same need that triggers cravings.",
+            "Practical tip: Brush your teeth or chew sugar-free gum. The fresh taste can help reset your craving and make cigarettes less appealing."
+        ];
+        
+        const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+        this.addAIEmergencyMessage(strategy);
+    }
+
+    startBreathingExercise() {
+        this.addAIEmergencyMessage("Let's do a quick breathing exercise together. This will only take 2 minutes and can really help with cravings. Ready?");
+        
+        setTimeout(() => {
+            this.addAIEmergencyMessage("Breathe in slowly for 4 counts... 1... 2... 3... 4...");
+            
+            setTimeout(() => {
+                this.addAIEmergencyMessage("Hold for 4 counts... 1... 2... 3... 4...");
+                
+                setTimeout(() => {
+                    this.addAIEmergencyMessage("Breathe out slowly for 6 counts... 1... 2... 3... 4... 5... 6...");
+                    
+                    setTimeout(() => {
+                        this.addAIEmergencyMessage("Great! Let's do that 4 more times. Focus on the breathing - it's more powerful than you might think for managing cravings.");
+                    }, 6000);
+                }, 4000);
+            }, 4000);
+        }, 2000);
+    }
+
+    async completeAIEmergencySession() {
+        // Final check - make sure they really want to proceed
+        this.addAIEmergencyMessage("I respect your decision, but I want to ask one final question: After our conversation, do you still feel this is a genuine emergency that requires unlocking the box? Or have you found some clarity?");
+        
+        // Wait for response before allowing unlock
+        const completeBtn = document.getElementById('aiEmergencyComplete');
+        completeBtn.disabled = true;
+        completeBtn.textContent = 'Waiting for response...';
+        
+        setTimeout(() => {
+            completeBtn.disabled = false;
+            completeBtn.textContent = 'Proceed with Emergency Unlock';
+            completeBtn.onclick = () => this.finalEmergencyUnlock();
+        }, 30000); // Wait 30 seconds
+    }
+
+    async finalEmergencyUnlock() {
+        this.closeAIEmergencyModal();
+        
+        // Show final confirmation
+        this.showConfirmModal('Final Confirmation', 
+            'You completed the AI session. Emergency unlock will still add penalty time. Final confirmation to proceed?', 
+            () => {
+                this.emergencyUnlock();
+                this.showMessage('Emergency unlock completed. Remember: you are stronger than your cravings! 💪', 'info');
+            }
+        );
+    }
+
+    clearAIEmergencyConversation() {
+        document.getElementById('aiEmergencyConversation').innerHTML = '';
+        document.getElementById('aiEmergencyComplete').disabled = true;
+        document.getElementById('aiEmergencyComplete').textContent = 'Complete & Unlock';
+        document.getElementById('emergencySessionTime').textContent = '10:00';
+        this.aiEmergencyMessageCount = 0;
     }
 }
 

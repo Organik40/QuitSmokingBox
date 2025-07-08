@@ -13,8 +13,11 @@
                 <div class="logo-icon">🚭</div>
                 <h1>Quit Smoking Timer Box</h1>
             </div>
-            <div class="status-badge" id="statusBadge">
-                <span class="status-text" id="statusText">Initializing...</span>
+            <div class="header-right">
+                <a href="/settings.html" class="btn-secondary">⚙️ Settings</a>
+                <div class="status-badge" id="statusBadge">
+                    <span class="status-text" id="statusText">Initializing...</span>
+                </div>
             </div>
         </header>
 
@@ -164,6 +167,25 @@
             <div class="modal-buttons">
                 <button id="modalCancel" class="btn-secondary">Cancel</button>
                 <button id="modalConfirm" class="btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Emergency Gatekeeper Modal -->
+    <div id="aiEmergencyModal" class="modal ai-modal">
+        <div class="modal-content ai-modal-content">
+            <h3>🤖 Emergency Support Session</h3>
+            <div id="aiEmergencyConversation" class="ai-conversation"></div>
+            <div id="aiEmergencyTimer" class="ai-timer">
+                ⏰ Minimum session time: <span id="emergencySessionTime">10:00</span>
+            </div>
+            <div id="aiEmergencyInput" class="ai-input-area">
+                <input type="text" id="aiEmergencyUserInput" placeholder="Type your response..." class="input-field">
+                <button id="aiEmergencySend" class="btn-primary">Send</button>
+            </div>
+            <div class="ai-actions">
+                <button id="aiEmergencyCancel" class="btn-secondary">Cancel Session</button>
+                <button id="aiEmergencyComplete" class="btn-primary" disabled>Complete & Unlock</button>
             </div>
         </div>
     </div>
