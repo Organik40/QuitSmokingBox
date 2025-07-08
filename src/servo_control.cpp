@@ -1,17 +1,30 @@
 #include "servo_control.h"
-#include <Servo.h>
+#include "config.h"
+#include <ESP32Servo.h>
 
-Servo lockServo;
-
-void initServo(int pin) {
-    lockServo.attach(pin);
-    lockServo.write(0); // Start in locked position
+ServoControl::ServoControl() {
+    servoPin = SERVO_PIN;
+    locked = true;
 }
 
-void lockBox() {
-    lockServo.write(0); // Lock position
+void ServoControl::begin() {
+    servo.attach(servoPin);
+    lock(); // Start in locked position
+    Serial.printf("🔧 Servo initialized on pin %d\n", servoPin);
 }
 
-void unlockBox() {
-    lockServo.write(90); // Unlock position
+void ServoControl::lock() {
+    servo.write(SERVO_LOCKED_POSITION);
+    locked = true;
+    Serial.println("🔒 Box locked");
+}
+
+void ServoControl::unlock() {
+    servo.write(SERVO_UNLOCKED_POSITION);
+    locked = false;
+    Serial.println("🔓 Box unlocked");
+}
+
+bool ServoControl::isLocked() {
+    return locked;
 }

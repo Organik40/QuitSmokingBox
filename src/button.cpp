@@ -1,20 +1,48 @@
 #include "button.h"
-#include <Arduino.h>
+#include "config.h"
 
-const int buttonPin = 12; // Define the pin for the button
-bool buttonState = false; // Variable to hold the button state
-
-void setupButton() {
-    pinMode(buttonPin, INPUT_PULLUP); // Set the button pin as input with pull-up resistor
+Button::Button() {
+    buttonPin = BUTTON_PIN;
+    lastReading = HIGH;
+    lastState = HIGH;
+    lastDebounceTime = 0;
+    pressed = false;
 }
 
-bool isButtonPressed() {
-    // Read the button state (LOW when pressed)
-    if (digitalRead(buttonPin) == LOW) {
-        delay(50); // Debounce delay
-        if (digitalRead(buttonPin) == LOW) {
-            return true; // Button is pressed
+void Button::begin() {
+    pinMode(buttonPin, INPUT_PULLUP);
+    Serial.printf("🔘 Button initialized on pin %d\n", buttonPin);
+}
+
+void Button::update() {
+    int reading = digitalRead(buttonPin);
+    
+    if (reading != lastReading) {
+        lastDebounceTime = millis();
+    }
+    
+    if ((millis() - lastDebounceTime) > BUTTON_DEBOUNCE_DELAY) {
+        if (reading != lastState) {
+            lastState = reading;
+            
+            // Button pressed (LOW because of INPUT_PULLUP)
+            if (reading == LOW) {
+                pressed = true;
+            }
         }
     }
-    return false; // Button is not pressed
+    
+    lastReading = reading;
+}
+
+bool Button::wasPressed() {
+    if (pressed) {
+        pressed = false; // Reset flag
+        return true;
+    }
+    return false;
+}
+
+bool Button::isPressed() {
+    return digitalRead(buttonPin) == LOW;
 }

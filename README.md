@@ -31,6 +31,9 @@ An open-source, ESP32-powered timer box designed to help people control their sm
 2. **Gradual Reduction** - Automatically increase intervals over time
 3. **Complete Quit Mode** - Progressive lockout to eliminate smoking
 4. **Emergency Only** - Only emergency unlocks allowed
+5. **Daily Schedule** - Unlock once per day at a specific time (default 22:00)
+6. **Weekly Schedule** - Unlock once per week on a chosen day and time
+7. **Custom Schedule** - Flexible scheduling for personalized quit plans
 
 ### Smart Features
 - **Progress tracking** with statistics and achievements
@@ -39,6 +42,9 @@ An open-source, ESP32-powered timer box designed to help people control their sm
 - **Beautiful web interface** with calm, organic design
 - **Real-time countdown** on both display and web interface
 - **Multiple user profiles** support
+- **Scheduled unlocks** with NTP time synchronization
+- **Intelligent countdown display** showing days/hours for long periods
+- **Web-based schedule configuration** with time picker and day selection
 
 ### Web Interface Features
 - 📊 **Real-time status monitoring**

@@ -101,28 +101,61 @@ class SmokingTimerBox {
     async loadConfiguration() {
         const config = await this.apiCall('/api/config');
         if (config) {
-            document.getElementById('timerMode').value = config.timerMode || 0;
+            const timerMode = parseInt(config.timerMode || 0);
+            
+            document.getElementById('timerMode').value = timerMode;
             document.getElementById('intervalMinutes').value = config.intervalMinutes || 30;
             document.getElementById('dailyLimit').value = config.dailyLimit || 10;
             document.getElementById('emergencyUnlocks').value = config.emergencyUnlocks || 3;
             
-            this.updateFormVisibility(parseInt(config.timerMode || 0));
+            // Load schedule data if available
+            if (config.scheduleHour !== undefined && config.scheduleMinute !== undefined) {
+                const timeValue = `${config.scheduleHour.toString().padStart(2, '0')}:${config.scheduleMinute.toString().padStart(2, '0')}`;
+                document.getElementById('scheduleTime').value = timeValue;
+            }
+            
+            if (config.unlockDuration !== undefined) {
+                document.getElementById('unlockDuration').value = config.unlockDuration;
+            }
+            
+            if (config.weekDay !== undefined) {
+                document.getElementById('weekDay').value = config.weekDay;
+            }
+            
+            this.updateFormVisibility(timerMode);
         }
     }
 
     async saveConfiguration() {
         const formData = new FormData(document.getElementById('configForm'));
+        const timerMode = parseInt(formData.get('timerMode'));
+        
         const config = {
-            timerMode: parseInt(formData.get('timerMode')),
+            timerMode: timerMode,
             intervalMinutes: parseInt(formData.get('intervalMinutes')),
             dailyLimit: parseInt(formData.get('dailyLimit')),
             emergencyUnlocks: parseInt(formData.get('emergencyUnlocks'))
         };
 
+        // Add schedule data for scheduled modes
+        if (timerMode === 4 || timerMode === 5 || timerMode === 6) { // Schedule modes
+            const timeValue = document.getElementById('scheduleTime').value;
+            const [hour, minute] = timeValue.split(':').map(Number);
+            
+            config.scheduleHour = hour;
+            config.scheduleMinute = minute;
+            config.unlockDuration = parseInt(document.getElementById('unlockDuration').value);
+            
+            if (timerMode === 5) { // Weekly schedule
+                config.weekDay = parseInt(document.getElementById('weekDay').value);
+            }
+        }
+
         const result = await this.apiCall('/api/config', 'POST', config);
         if (result && result.success) {
             this.showMessage('Configuration saved successfully!', 'success');
             this.updateStatus();
+            this.updateSchedulePreview();
         } else {
             this.showMessage('Failed to save configuration. Please try again.', 'error');
         }
@@ -221,6 +254,14 @@ class SmokingTimerBox {
     updateFormVisibility(timerMode) {
         const intervalGroup = document.getElementById('intervalGroup');
         const dailyLimitGroup = document.getElementById('dailyLimitGroup');
+        const scheduleConfig = document.getElementById('scheduleConfig');
+        const weekDayGroup = document.getElementById('weekDayGroup');
+        
+        // Hide all groups initially
+        intervalGroup.style.display = 'none';
+        dailyLimitGroup.style.display = 'none';
+        scheduleConfig.style.display = 'none';
+        weekDayGroup.style.display = 'none';
         
         switch (timerMode) {
             case 0: // Fixed Interval
@@ -232,13 +273,29 @@ class SmokingTimerBox {
                 dailyLimitGroup.style.display = 'block';
                 break;
             case 2: // Complete Quit
-                intervalGroup.style.display = 'none';
-                dailyLimitGroup.style.display = 'none';
                 break;
             case 3: // Emergency Only
-                intervalGroup.style.display = 'none';
-                dailyLimitGroup.style.display = 'none';
                 break;
+            case 4: // Daily Schedule
+                scheduleConfig.style.display = 'block';
+                this.updateSchedulePreview();
+                break;
+            case 5: // Weekly Schedule
+                scheduleConfig.style.display = 'block';
+                weekDayGroup.style.display = 'block';
+                this.updateSchedulePreview();
+                break;
+            case 6: // Custom Schedule
+                scheduleConfig.style.display = 'block';
+                this.updateSchedulePreview();
+                break;
+        }
+    }
+
+    async updateSchedulePreview() {
+        const status = await this.apiCall('/api/schedule-info');
+        if (status && status.nextUnlock) {
+            document.getElementById('nextUnlockTime').textContent = status.nextUnlock;
         }
     }
 

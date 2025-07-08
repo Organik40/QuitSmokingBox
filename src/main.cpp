@@ -9,6 +9,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <ESP32Servo.h>
+#include <time.h>
 #include "config.h"
 #include "display.h"
 #include "servo_control.h"
@@ -32,6 +33,7 @@ bool wifiConnected = false;
 
 // Function declarations
 void setupWiFi();
+void setupTimeSync();
 void setupWebServer();
 void setupHardware();
 void handleWebRequests();
@@ -192,9 +194,40 @@ void setupWiFi() {
         Serial.printf("📱 IP Address: %s\n", ip.toString().c_str());
         Serial.printf("🔐 Password: %s\n", AP_PASSWORD);
         wifiConnected = true;
+        
+        // Setup time synchronization (NTP)
+        setupTimeSync();
     } else {
         Serial.println("❌ Failed to start WiFi AP!");
         wifiConnected = false;
+    }
+}
+
+void setupTimeSync() {
+    Serial.println("🕒 Setting up time synchronization...");
+    
+    // Configure NTP
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    
+    // Wait for time to be set
+    int attempts = 0;
+    while (time(nullptr) < 1000000000L && attempts < 20) {
+        delay(500);
+        Serial.print(".");
+        attempts++;
+    }
+    
+    if (time(nullptr) > 1000000000L) {
+        Serial.println("\n✅ Time synchronized with NTP");
+        
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo)) {
+            Serial.printf("📅 Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
+                         timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
+                         timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        }
+    } else {
+        Serial.println("\n⚠️ Failed to synchronize time with NTP");
     }
 }
 
@@ -213,10 +246,23 @@ void setupWebServer() {
     server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request) {
         DynamicJsonDocument doc(1024);
         
-        doc["timerMode"] = preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
+        TimerMode currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
+        
+        doc["timerMode"] = currentMode;
         doc["intervalMinutes"] = preferences.getInt(KEY_INTERVAL_MINUTES, DEFAULT_TIMER_MINUTES);
         doc["dailyLimit"] = preferences.getInt(KEY_DAILY_LIMIT, 10);
         doc["emergencyUnlocks"] = MAX_EMERGENCY_UNLOCKS_PER_DAY;
+        
+        // Add schedule data for scheduled modes
+        if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE || currentMode == CUSTOM_SCHEDULE) {
+            doc["scheduleHour"] = preferences.getInt(KEY_DAILY_HOUR, 22);
+            doc["scheduleMinute"] = preferences.getInt(KEY_DAILY_MINUTE, 0);
+            doc["unlockDuration"] = preferences.getInt(KEY_UNLOCK_DURATION, 30);
+            
+            if (currentMode == WEEKLY_SCHEDULE) {
+                doc["weekDay"] = preferences.getInt(KEY_WEEKLY_DAY, 0);
+            }
+        }
         
         String response;
         serializeJson(doc, response);
@@ -230,12 +276,31 @@ void setupWebServer() {
         DynamicJsonDocument doc(1024);
         deserializeJson(doc, (char*)data);
         
-        // Save configuration
-        preferences.putInt(KEY_TIMER_MODE, doc["timerMode"]);
+        // Save basic configuration
+        TimerMode newMode = (TimerMode)doc["timerMode"].as<int>();
+        preferences.putInt(KEY_TIMER_MODE, newMode);
         preferences.putInt(KEY_INTERVAL_MINUTES, doc["intervalMinutes"]);
         preferences.putInt(KEY_DAILY_LIMIT, doc["dailyLimit"]);
         
-        currentMode = (TimerMode)doc["timerMode"].as<int>();
+        // Handle schedule configuration for new modes
+        if (newMode == DAILY_SCHEDULE || newMode == WEEKLY_SCHEDULE || newMode == CUSTOM_SCHEDULE) {
+            if (doc.containsKey("scheduleHour") && doc.containsKey("scheduleMinute")) {
+                int hour = doc["scheduleHour"];
+                int minute = doc["scheduleMinute"];
+                int unlockDuration = doc["unlockDuration"] | 30; // Default 30 minutes
+                
+                if (newMode == DAILY_SCHEDULE) {
+                    timer.setDailySchedule(hour, minute, unlockDuration);
+                } else if (newMode == WEEKLY_SCHEDULE && doc.containsKey("weekDay")) {
+                    int weekDay = doc["weekDay"];
+                    timer.setWeeklySchedule(weekDay, hour, minute, unlockDuration);
+                }
+                
+                Serial.printf("📅 Schedule configured: %02d:%02d for %d minutes\n", hour, minute, unlockDuration);
+            }
+        }
+        
+        currentMode = newMode;
         
         DynamicJsonDocument response(256);
         response["success"] = true;
@@ -351,6 +416,25 @@ void setupWebServer() {
         request->send(200, "application/json", responseStr);
     });
     
+    // API endpoint: Schedule information
+    server.on("/api/schedule-info", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(512);
+        
+        TimerMode currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
+        
+        if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
+            doc["nextUnlock"] = timer.getNextUnlockTime();
+            doc["timeUntilUnlock"] = timer.getTimeUntilNextScheduledUnlock();
+        } else {
+            doc["nextUnlock"] = "Not scheduled";
+            doc["timeUntilUnlock"] = 0;
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
     // Handle 404
     server.onNotFound([](AsyncWebServerRequest *request) {
         request->send(404, "text/plain", "File not found");
@@ -361,15 +445,24 @@ void setupWebServer() {
 }
 
 void updateDisplay() {
+    TimerMode currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
+    
     switch (currentState) {
         case LOCKED:
-            display.showCountdown(timer.getTimeRemaining());
+            if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
+                // Show time until next scheduled unlock
+                unsigned long timeUntilUnlock = timer.getTimeUntilNextScheduledUnlock();
+                display.showCountdown(timeUntilUnlock);
+            } else {
+                // Show regular timer countdown
+                display.showCountdown(timer.getTimeRemaining() / 1000);
+            }
             break;
         case UNLOCKED:
             display.showUnlocked();
             break;
         case COUNTDOWN:
-            display.showCountdown(timer.getTimeRemaining());
+            display.showCountdown(timer.getTimeRemaining() / 1000);
             break;
         case SETUP:
             display.showSetup(wifiConnected);
@@ -398,15 +491,32 @@ void saveStatus() {
 void loadConfiguration() {
     currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
     
-    // Load other settings as needed
+    // Load schedule configuration for scheduled modes
+    if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
+        int hour = preferences.getInt(KEY_DAILY_HOUR, 22);
+        int minute = preferences.getInt(KEY_DAILY_MINUTE, 0);
+        int unlockDuration = preferences.getInt(KEY_UNLOCK_DURATION, 30);
+        
+        if (currentMode == DAILY_SCHEDULE) {
+            timer.setDailySchedule(hour, minute, unlockDuration);
+        } else if (currentMode == WEEKLY_SCHEDULE) {
+            int weekDay = preferences.getInt(KEY_WEEKLY_DAY, 0);
+            timer.setWeeklySchedule(weekDay, hour, minute, unlockDuration);
+        }
+        
+        Serial.printf("📅 Loaded schedule: %02d:%02d for %d minutes\n", hour, minute, unlockDuration);
+    }
+    
     Serial.printf("📖 Loaded configuration - Mode: %d\n", currentMode);
 }
 
 String getStatusJSON() {
     DynamicJsonDocument doc(1024);
     
+    TimerMode currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
+    
     doc["boxState"] = currentState;
-    doc["timeRemaining"] = timer.getTimeRemaining();
+    doc["timerMode"] = currentMode;
     doc["timerActive"] = timer.isActive();
     doc["emergencyCount"] = preferences.getInt(KEY_EMERGENCY_COUNT, 0);
     doc["maxEmergency"] = MAX_EMERGENCY_UNLOCKS_PER_DAY;
@@ -417,6 +527,16 @@ String getStatusJSON() {
     doc["totalDays"] = (millis() / 86400000); // Days since first run
     doc["longestStreak"] = preferences.getInt("longest_streak", 0);
     doc["wifiConnected"] = wifiConnected;
+    
+    // Add time information based on mode
+    if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
+        doc["timeRemaining"] = timer.getTimeUntilNextScheduledUnlock();
+        doc["nextUnlock"] = timer.getNextUnlockTime();
+        doc["isScheduled"] = true;
+    } else {
+        doc["timeRemaining"] = timer.getTimeRemaining() / 1000; // Convert to seconds
+        doc["isScheduled"] = false;
+    }
     
     String response;
     serializeJson(doc, response);

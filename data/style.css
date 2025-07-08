@@ -382,6 +382,59 @@ body {
     margin-top: 5px;
 }
 
+/* Schedule Configuration */
+.schedule-config {
+    background: rgba(107, 115, 255, 0.05);
+    border: 2px solid rgba(107, 115, 255, 0.1);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.schedule-config h3 {
+    color: var(--primary-color);
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.schedule-preview {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+    text-align: center;
+}
+
+.schedule-preview strong {
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 5px;
+}
+
+#nextUnlockTime {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+/* Time input styling */
+input[type="time"] {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Enhanced countdown display */
+.countdown {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .container {

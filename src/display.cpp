@@ -1,4 +1,6 @@
 #include "display.h"
+#include "config.h"
+#include <Preferences.h>
 
 Display::Display() : display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET), 
                      messageEndTime(0), showingMessage(false) {
@@ -40,24 +42,62 @@ void Display::showCountdown(unsigned long secondsRemaining) {
     showingMessage = false;
     display.clearDisplay();
     
-    // Title
-    display.setTextSize(1);
-    drawCenteredText("LOCKED", 0);
+    // Check if we're in a scheduled mode (we need to include this from main)
+    extern Preferences preferences;
     
-    // Main countdown
-    String timeStr = formatTime(secondsRemaining);
-    display.setTextSize(2);
-    drawCenteredText(timeStr.c_str(), 20);
+    TimerMode currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
     
-    // Progress bar
-    // Assuming max time is stored somewhere, for now use a default
-    unsigned long maxTime = 3600; // 1 hour default
-    int percentage = 100 - ((secondsRemaining * 100) / maxTime);
-    drawProgressBar(percentage, 45);
-    
-    // Bottom text
-    display.setTextSize(1);
-    drawCenteredText("Time until unlock", 55);
+    if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
+        // Show scheduled countdown
+        display.setTextSize(1);
+        if (currentMode == DAILY_SCHEDULE) {
+            drawCenteredText("DAILY SCHEDULE", 0);
+        } else {
+            drawCenteredText("WEEKLY SCHEDULE", 0);
+        }
+        
+        // Show time until next unlock
+        display.setTextSize(2);
+        
+        // Handle long times differently
+        if (secondsRemaining > 86400) { // More than 24 hours
+            unsigned long days = secondsRemaining / 86400;
+            unsigned long hours = (secondsRemaining % 86400) / 3600;
+            String dayStr = String(days) + "d " + String(hours) + "h";
+            drawCenteredText(dayStr.c_str(), 20);
+        } else {
+            String timeStr = formatTime(secondsRemaining);
+            drawCenteredText(timeStr.c_str(), 20);
+        }
+        
+        display.setTextSize(1);
+        drawCenteredText("Until next unlock", 40);
+        
+        // Show scheduled time
+        int hour = preferences.getInt(KEY_DAILY_HOUR, 22);
+        int minute = preferences.getInt(KEY_DAILY_MINUTE, 0);
+        char scheduleStr[20];
+        snprintf(scheduleStr, sizeof(scheduleStr), "Schedule: %02d:%02d", hour, minute);
+        drawCenteredText(scheduleStr, 55);
+    } else {
+        // Regular timer countdown
+        display.setTextSize(1);
+        drawCenteredText("LOCKED", 0);
+        
+        // Main countdown
+        String timeStr = formatTime(secondsRemaining);
+        display.setTextSize(2);
+        drawCenteredText(timeStr.c_str(), 20);
+        
+        // Progress bar
+        unsigned long maxTime = 3600; // 1 hour default
+        int percentage = 100 - ((secondsRemaining * 100) / maxTime);
+        drawProgressBar(percentage, 45);
+        
+        // Bottom text
+        display.setTextSize(1);
+        drawCenteredText("Time until unlock", 55);
+    }
     
     display.display();
 }

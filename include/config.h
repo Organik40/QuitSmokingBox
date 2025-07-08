@@ -10,7 +10,7 @@
 // OLED Display Settings
 #define SCREEN_WIDTH CONFIG_OLED_WIDTH
 #define SCREEN_HEIGHT CONFIG_OLED_HEIGHT
-#define OLED_RESET -1  // Reset pin (or -1 if sharing Arduino reset pin)
+#define OLED_RESET -1        // Reset pin (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C  // I2C address for OLED
 
 // Servo Settings
@@ -44,13 +44,22 @@
 #define KEY_EMERGENCY_COUNT "emergency_cnt"
 #define KEY_TOTAL_CIGARETTES "total_cigs"
 #define KEY_DAYS_SMOKE_FREE "smoke_free_days"
+#define KEY_DAILY_HOUR "daily_hour"
+#define KEY_DAILY_MINUTE "daily_minute"
+#define KEY_UNLOCK_DURATION "unlock_duration"
+#define KEY_WEEKLY_DAY "weekly_day"
+#define KEY_CUSTOM_INTERVALS "custom_intervals"
+#define KEY_LAST_SCHEDULED_UNLOCK "last_scheduled"
 
 // Timer Modes
 enum TimerMode {
   FIXED_INTERVAL = 0,
   GRADUAL_REDUCTION = 1,
   COMPLETE_QUIT = 2,
-  EMERGENCY_ONLY = 3
+  EMERGENCY_ONLY = 3,
+  DAILY_SCHEDULE = 4,
+  WEEKLY_SCHEDULE = 5,
+  CUSTOM_SCHEDULE = 6
 };
 
 // Box States

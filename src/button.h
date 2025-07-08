@@ -5,12 +5,18 @@
 
 class Button {
 public:
-    Button(int pin);
+    Button();
     void begin();
+    void update();
+    bool wasPressed();
     bool isPressed();
 
 private:
     int buttonPin;
+    int lastReading;
+    int lastState;
+    unsigned long lastDebounceTime;
+    bool pressed;
 };
 
 #endif // BUTTON_H

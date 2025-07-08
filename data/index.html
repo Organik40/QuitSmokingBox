@@ -53,6 +53,9 @@
                             <option value="1">Gradual Reduction</option>
                             <option value="2">Complete Quit Mode</option>
                             <option value="3">Emergency Only</option>
+                            <option value="4">Daily Schedule</option>
+                            <option value="5">Weekly Schedule</option>
+                            <option value="6">Custom Schedule</option>
                         </select>
                     </div>
 
@@ -66,6 +69,40 @@
                         <label for="dailyLimit">Daily Limit:</label>
                         <input type="number" id="dailyLimit" name="dailyLimit" 
                                min="1" max="50" value="10" class="input-field">
+                    </div>
+
+                    <!-- Schedule Configuration -->
+                    <div class="schedule-config" id="scheduleConfig" style="display: none;">
+                        <h3>📅 Schedule Settings</h3>
+                        
+                        <div class="form-group" id="timeGroup">
+                            <label for="scheduleTime">Unlock Time:</label>
+                            <input type="time" id="scheduleTime" name="scheduleTime" 
+                                   value="22:00" class="input-field">
+                        </div>
+
+                        <div class="form-group" id="weekDayGroup" style="display: none;">
+                            <label for="weekDay">Day of Week:</label>
+                            <select id="weekDay" name="weekDay" class="dropdown">
+                                <option value="0">Sunday</option>
+                                <option value="1">Monday</option>
+                                <option value="2">Tuesday</option>
+                                <option value="3">Wednesday</option>
+                                <option value="4">Thursday</option>
+                                <option value="5">Friday</option>
+                                <option value="6">Saturday</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="unlockDuration">Unlock Duration (minutes):</label>
+                            <input type="number" id="unlockDuration" name="unlockDuration" 
+                                   min="1" max="180" value="30" class="input-field">
+                        </div>
+
+                        <div class="schedule-preview" id="schedulePreview">
+                            <strong>Next unlock:</strong> <span id="nextUnlockTime">Loading...</span>
+                        </div>
                     </div>
 
                     <div class="form-group">
