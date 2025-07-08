@@ -1,0 +1,56 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Quit Smoking Timer Box",
+			"type": "shell",
+			"command": "pio run",
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"args": []
+		},
+		{
+			"label": "Upload Firmware",
+			"type": "shell",
+			"command": "pio run --target upload",
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"args": []
+		},
+		{
+			"label": "Upload Web Interface (SPIFFS)",
+			"type": "shell",
+			"command": "pio run --target uploadfs",
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"args": []
+		},
+		{
+			"label": "Serial Monitor",
+			"type": "shell",
+			"command": "pio device monitor",
+			"group": "test",
+			"isBackground": true,
+			"problemMatcher": [],
+			"args": []
+		},
+		{
+			"label": "Clean Build",
+			"type": "shell",
+			"command": "pio run --target clean",
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": [],
+			"args": []
+		}
+	]
+}

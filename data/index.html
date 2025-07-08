@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quit Smoking Timer Box - Configuration</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">🚭</div>
+                <h1>Quit Smoking Timer Box</h1>
+            </div>
+            <div class="status-badge" id="statusBadge">
+                <span class="status-text" id="statusText">Initializing...</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Status Card -->
+            <div class="card status-card">
+                <h2>📊 Current Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="label">Box State:</span>
+                        <span class="value" id="boxState">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Time Until Unlock:</span>
+                        <span class="value countdown" id="timeRemaining">--:--:--</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Today's Count:</span>
+                        <span class="value" id="todayCount">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Days Smoke Free:</span>
+                        <span class="value" id="smokeFree">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timer Configuration Card -->
+            <div class="card config-card">
+                <h2>⏱️ Timer Configuration</h2>
+                <form id="configForm">
+                    <div class="form-group">
+                        <label for="timerMode">Timer Mode:</label>
+                        <select id="timerMode" name="timerMode" class="dropdown">
+                            <option value="0">Fixed Interval</option>
+                            <option value="1">Gradual Reduction</option>
+                            <option value="2">Complete Quit Mode</option>
+                            <option value="3">Emergency Only</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="intervalGroup">
+                        <label for="intervalMinutes">Interval (minutes):</label>
+                        <input type="number" id="intervalMinutes" name="intervalMinutes" 
+                               min="1" max="1440" value="30" class="input-field">
+                    </div>
+
+                    <div class="form-group" id="dailyLimitGroup">
+                        <label for="dailyLimit">Daily Limit:</label>
+                        <input type="number" id="dailyLimit" name="dailyLimit" 
+                               min="1" max="50" value="10" class="input-field">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="emergencyUnlocks">Emergency Unlocks/Day:</label>
+                        <input type="number" id="emergencyUnlocks" name="emergencyUnlocks" 
+                               min="0" max="10" value="3" class="input-field">
+                    </div>
+
+                    <button type="submit" class="btn-primary">💾 Save Configuration</button>
+                </form>
+            </div>
+
+            <!-- Quick Actions Card -->
+            <div class="card actions-card">
+                <h2>🎯 Quick Actions</h2>
+                <div class="action-buttons">
+                    <button id="unlockBtn" class="btn-action unlock-btn">🔓 Unlock Now</button>
+                    <button id="emergencyBtn" class="btn-action emergency-btn">🚨 Emergency Unlock</button>
+                    <button id="resetBtn" class="btn-action reset-btn">🔄 Reset Progress</button>
+                    <button id="testBtn" class="btn-action test-btn">🧪 Test Servo</button>
+                </div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="card stats-card">
+                <h2>📈 Progress Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalSaved">$0</div>
+                        <div class="stat-label">Money Saved</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalCigarettes">0</div>
+                        <div class="stat-label">Cigarettes Avoided</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalDays">0</div>
+                        <div class="stat-label">Days Using Box</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="longestStreak">0</div>
+                        <div class="stat-label">Longest Streak</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>Made with ❤️ for a healthier lifestyle</p>
+            <p class="version">v1.0.0 - Open Source</p>
+        </footer>
+    </div>
+
+    <!-- Modal for confirmations -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Confirm Action</h3>
+            <p id="modalMessage">Are you sure?</p>
+            <div class="modal-buttons">
+                <button id="modalCancel" class="btn-secondary">Cancel</button>
+                <button id="modalConfirm" class="btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/script.js"></script>
+</body>
+</html>
