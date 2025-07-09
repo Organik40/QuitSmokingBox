@@ -2,9 +2,81 @@
 
 An open-source, ESP32-powered timer box designed to help people control their smoking habits or quit entirely. The box features a servo-controlled locking mechanism, OLED display, and a beautiful web interface for configuration.
 
-![Quit Smoking Timer Box](https://img.shields.io/badge/Status-Active%20Development-green) ![License](https://img.shields.io/badge/License-MIT-blue) ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-red)
+![Quit Smoking Timer Box](https://img.shields.io/badge/Status-Active%20Development-orange) ![License](https://img.shields.io/badge/License-MIT-blue) ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-red) ![Features](https://img.shields.io/badge/Features-AI%20Ready-purple)
 
-## 📋 Table of Contents
+## 🚀 Latest Updates (v2.0)
+
+### ✅ Core Features Implemented
+- **🤖 AI Emergency Gatekeeper System** - Complete implementation with 4 personalities, reflection questions, and breathing exercises
+- **🌐 Real-time WebSocket Updates** - Live status updates without page refresh
+- **📱 Progressive Web App (PWA)** - Mobile app installation support with offline capabilities
+- **🔒 Network-based Security** - Public WiFi blocking and network restrictions
+- **📊 Enhanced Statistics** - Money saved calculations and progress tracking
+- **⚡ Advanced Timer Modes** - Gradual reduction and complete quit algorithms
+- **🛡️ Security Framework** - Network-based access control system
+- **⚙️ Complete Settings Interface** - Web-based configuration for all features
+
+### 🔧 Features Coming Soon
+- **🎨 3D Enclosure Models** - Professional housing for all components *(Design in progress)*
+- **🤖 Advanced AI Personalities** - Enhanced conversational depth *(Framework complete, expanding responses)*
+- **🧠 Enhanced AI Intelligence** - Context-aware responses and learning capabilities *(In development)*
+- **☁️ Cloud Sync & Backup** - Multi-device progress synchronization *(Planned)*
+- **📱 Native Mobile App** - Dedicated iOS/Android application *(Planned)*
+- **🔍 Advanced Analytics** - Detailed usage patterns and predictive insights *(Planned)*
+- **👥 Social Features** - Community support and progress sharing *(Planned)*
+- **🔗 Health App Integration** - Apple Health, Google Fit connectivity *(Planned)*
+- **🎮 Gamification** - Achievement system and challenges *(Planned)*
+
+### 🛠️ Hardware Features Coming Soon
+- **🎨 3D Printed Enclosure** - Professional housing design *(In development)*
+- **🔍 Tamper Detection** - Physical security enhancements *(Hardware pending)*
+- **🔋 Battery Power Support** - Standalone operation capability *(Hardware pending)*
+- **☀️ Solar Charging** - Eco-friendly power option *(Hardware pending)*
+- **🎤 Voice Control** - Alexa/Google Assistant integration *(Planned)*
+- **🔐 Biometric Lock** - Fingerprint security option *(Hardware pending)*
+- **📡 Cellular Connectivity** - 4G/5G option for remote areas *(Hardware pending)*n open-source, ESP32-powered timer box designed to help people control their smoking habits or quit entirely. The box features a servo-controlled locking mechanism, OLED display, and a beautiful web interface for configuration.
+
+![Quit Smoking Timer Box](https://img.shields.io/badge/Status-Active%20Development-orange) ![License](https://img.shields.io/badge/License-MIT-blue) ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-red) ![Features](https://img.shields.io/badge/Features-AI%20Ready-purple)
+
+## 🚀 Latest Updates (v2.0 - In Development)# 🚀 Latest Updates (v2.0 - In Development)it Smoking Timer Box
+
+An open-source, ESP32-powered timer box designed to help people control their smoking habits or quit entirely. The box features a servo-controlled locking mechanism, OLED display, and a beautiful web interface for configuration.
+
+![Quit Smoking Timer Box](https://img.shields.io/badge/Status-Active%20Development-orange) ![License](https://img.shields.io/badge/License-MIT-blue) ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-red) ![Features](https://img.shields.io/badge/Features-AI%20Ready-purple)
+
+## � Latest Updates (v2.0)
+
+### ✨ Core Features Implemented
+- **🤖 AI Emergency Gatekeeper Framework** - Backend ready, basic OpenAI integration and simple AI available
+- **🌐 Real-time WebSocket Updates** - Live status updates without page refresh
+- **📱 Progressive Web App (PWA)** - Mobile app installation support with offline capabilities
+- **🔒 Network-based Security** - Public WiFi blocking and network restrictions
+- **📊 Enhanced Statistics** - Money saved calculations and progress tracking
+- **⚡ Advanced Timer Modes** - Gradual reduction and complete quit algorithms
+- **🛡️ Security Framework** - Network-based access control system
+- **⚙️ Complete Settings Interface** - Web-based configuration for all features
+
+### 🔧 Features Coming Soon
+- **🤖 Complete AI Personalities** - Full conversational AI with multiple personalities *(Framework ready)*
+- **☁️ Cloud Sync & Backup** - Multi-device progress synchronization *(Planned)*
+- **� Mobile App Companion** - Dedicated mobile application *(Planned)*
+- **🔍 Advanced Analytics** - Detailed usage patterns and insights *(Planned)*
+- **👥 Social Features** - Community support and progress sharing *(Planned)*
+- **�️ Hardware Tamper Detection** - Physical security enhancements *(Hardware pending)*
+- **🔋 Battery Power Support** - Standalone operation capability *(Hardware pending)*
+
+### 🎯 Implementation Status
+Current development status of major features:
+1. ✅ **Core Timer System** - Fully functional with all 7 modes
+2. ✅ **Web Interface** - Complete with real-time updates  
+3. ✅ **PWA Support** - Ready for mobile installation with offline support
+4. ✅ **AI Emergency System** - Fully implemented with enhanced personalities, reflection questions, and breathing exercises
+5. ✅ **Network Security** - Operational with configurable restrictions
+6. ✅ **Statistics Tracking** - Enhanced progress monitoring active
+7. ✅ **Settings Management** - Complete configuration interface available
+8. ✅ **Advanced AI Features** - Complete implementation with 4 personalities, reflection system, and interactive breathing exercises
+
+---
 
 - [Features](#-features)
 - [Hardware Requirements](#-hardware-requirements)
@@ -12,7 +84,7 @@ An open-source, ESP32-powered timer box designed to help people control their sm
 - [Assembly Guide](#-assembly-guide)
 - [Usage](#-usage)
 - [Web Interface](#-web-interface)
-- [3D Models](#-3d-models)
+- [3D Models](#-3d-models-coming-soon)
 - [Configuration](#-configuration)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -60,15 +132,16 @@ An open-source, ESP32-powered timer box designed to help people control their sm
 - 🔄 **Progress reset** functionality
 - 🧪 **Hardware testing** tools
 
-### AI Emergency Gatekeeper (Optional)
-- **10-minute minimum conversation** before emergency unlock is allowed
-- **Multiple AI personalities**: Supportive Coach, Strict Counselor, Understanding Friend, Professional Therapist
-- **Intelligent responses** based on user triggers (stress, boredom, anger, habits)
-- **Coping strategies** including breathing exercises and alternative activities
-- **Network restrictions** - can block emergency unlocks on public WiFi or specific networks
-- **Configurable providers**: OpenAI GPT, Local AI, or Simple rule-based responses
-- **Reflection questions** to encourage deeper thinking about the craving
-- **Test mode** to try the AI system without actual emergency unlock
+### AI Emergency Gatekeeper (Fully Implemented) ✅
+- **10-minute minimum conversation** before emergency unlock is allowed ✅
+- **Multiple AI personalities**: Supportive Coach, Strict Counselor, Understanding Friend, Professional Therapist ✅
+- **Intelligent responses** based on user triggers (stress, boredom, anger, habits) ✅
+- **Coping strategies** including breathing exercises and alternative activities ✅
+- **Network restrictions** - can block emergency unlocks on public WiFi or specific networks ✅
+- **Configurable providers**: OpenAI GPT ✅, Local AI *(Coming soon)*, Simple rule-based responses ✅
+- **Reflection questions** to encourage deeper thinking about the craving ✅
+- **Interactive breathing exercises** with guided 4-7-8 breathing technique ✅
+- **Test mode** to try the AI system without actual emergency unlock ✅
 
 ## 🔧 Hardware Requirements
 
@@ -89,12 +162,18 @@ An open-source, ESP32-powered timer box designed to help people control their sm
 - Servo: 6V-7.4V (external supply recommended)
 - OLED Display: 3.3V
 
+### 3D Printed Enclosure *(Coming Soon)*
+- Custom-designed STL files for a complete box enclosure
+- Servo mounting bracket for secure installation
+- Elegant design with easy access to components
+- Files will be available in the `3d_models/` directory when ready
+
 ## 📦 Installation
 
 ### Prerequisites
 - **PlatformIO IDE** (VS Code extension recommended)
 - **Git** for version control
-- **3D Printer** (for box enclosure)
+- **3D Printer** *(optional - for enclosure when STL files are released)*
 
 ### Step 1: Clone the Repository
 ```bash
@@ -170,10 +249,10 @@ ESP32-S3 Nano    OLED Display    DS3218MG Servo    Push Button
    - Wire between GPIO 19 and GND
    - Add pull-up resistor if needed
 
-5. **3D Print Enclosure**
-   - Print all STL files from `3d_models/` directory
-   - Use PLA or PETG plastic
-   - Post-process for smooth fit
+5. **3D Print Enclosure** *(Optional - Coming Soon)*
+   - STL files for custom enclosure will be available soon
+   - Current prototyping can be done with breadboard
+   - Servo can be temporarily mounted for testing
 
 ### Detailed Assembly Instructions
 See [docs/assembly_guide.md](docs/assembly_guide.md) for complete assembly instructions with photos.
@@ -218,19 +297,20 @@ See [docs/assembly_guide.md](docs/assembly_guide.md) for complete assembly instr
 
 ### Emergency Unlock Modes
 
-#### Normal Mode (Default)
+#### Normal Mode (Default) ✅
 - **5-minute cooling-off period** with countdown timer
-- **Reflection prompts** to encourage reconsidering
+- **Reflection prompts** to encourage reconsidering *(Coming soon)*
 - **Simple but effective** delay to reduce impulsive unlocks
 - **No additional setup required**
 
-#### AI Gatekeeper Mode (Optional)
-- **10-minute interactive conversation** with AI
-- **Personalized responses** based on your triggers and situation
-- **Active discouragement** with coping strategies and alternatives
-- **Breathing exercises and mindfulness** techniques
-- **Network-based restrictions** for high-risk environments
-- **Requires configuration** in Settings page
+#### AI Gatekeeper Mode (Partially Available) ⚙️
+- **10-minute interactive conversation** with AI ✅
+- **Basic AI responses** based on your triggers and situation ✅
+- **Simple coping strategies** and alternatives ✅
+- **Enhanced personalities** and deeper conversations *(Coming soon)*
+- **Advanced breathing exercises** and mindfulness techniques *(Coming soon)*
+- **Network-based restrictions** for high-risk environments ✅
+- **Requires configuration** in Settings page ✅
 
 Both modes include penalty time added to your next timer interval.
 
@@ -270,25 +350,36 @@ The web interface provides a beautiful, modern dashboard for configuring and mon
 - **Calm color scheme** for reduced stress
 - **Accessibility** features included
 
-## 🎨 3D Models
+## 🎨 3D Models *(Coming Soon)*
 
-All STL files are included in the `3d_models/` directory:
+The 3D enclosure models are currently in development and will be released soon.
 
-### Print Settings
+### Planned Features
+- **Complete enclosure design** for professional appearance
+- **Servo mounting system** for secure DS3218MG installation  
+- **OLED display window** for easy viewing
+- **Access ports** for charging and programming
+- **Security features** to prevent tampering
+
+### Print Settings *(When Available)*
 - **Layer height**: 0.2mm
 - **Infill**: 20%
 - **Supports**: Yes (for overhangs)
 - **Print speed**: 50mm/s
+- **Material**: PLA or PETG recommended
 
-### Files Included
+### Files To Be Included
 - `box_base.stl` - Main box container
 - `box_lid.stl` - Servo-controlled lid
 - `servo_mount.stl` - Mounting bracket for DS3218MG
+- `display_mount.stl` - OLED display frame
 
-### Customization
-- Files are designed for standard cigarette packs
-- Modify dimensions in your CAD software if needed
-- Consider printing in different colors for personalization
+### Current Status
+- **Design Phase**: In progress
+- **Prototyping**: Breadboard version functional
+- **Release**: Coming in next update
+
+For now, you can prototype the system using a breadboard and temporary servo mounting.
 
 ## ⚙️ Configuration
 
@@ -375,21 +466,30 @@ This project is completely open source because:
 
 ## 🚀 Future Roadmap
 
-### Planned Features
-- [ ] **Mobile app** for remote monitoring
-- [ ] **Cloud sync** for multi-device support
-- [ ] **Social features** for community support
-- [ ] **Advanced analytics** and insights
-- [ ] **Integration** with health apps
-- [ ] **Voice control** via Alexa/Google
-- [ ] **Biometric** locks for security
+### 🔧 Short-term Development (Coming Soon)
+- [ ] **3D Enclosure Models** - Complete STL files for professional housing
+- [ ] **Enhanced AI personalities** - Complete conversational AI implementation (Framework ready)
+- [ ] **Advanced AI intelligence** - Context-aware responses and learning
+- [ ] **Local AI integration** - Ollama and other local AI providers
+- [ ] **Reflection prompts** - Deep questions for craving analysis (Framework ready)
+- [ ] **Gamification elements** - Achievement system and challenges
 
-### Hardware Improvements
-- [ ] **Battery power** option
-- [ ] **Solar charging** capability
-- [ ] **Smaller form factor** designs
-- [ ] **Multiple compartment** support
-- [ ] **Tamper detection** sensors
+### 📱 Medium-term Features (Planned)
+- [ ] **Native mobile app** - iOS and Android applications
+- [ ] **Cloud sync** - Multi-device progress synchronization
+- [ ] **Advanced analytics** - Detailed usage patterns and insights
+- [ ] **Social features** - Community support and progress sharing
+- [ ] **Health app integration** - Apple Health, Google Fit connectivity
+- [ ] **Voice control** - Alexa/Google Assistant integration
+
+### 🛠️ Long-term Hardware Improvements (Hardware Pending)
+- [ ] **Battery power** - Standalone operation capability
+- [ ] **Solar charging** - Eco-friendly power option
+- [ ] **Tamper detection** - Physical security sensors
+- [ ] **Biometric locks** - Fingerprint security
+- [ ] **Smaller form factor** - Compact designs
+- [ ] **Multiple compartments** - Support for different items
+- [ ] **Cellular connectivity** - 4G/5G for remote areas
 
 ---
 

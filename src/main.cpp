@@ -15,14 +15,43 @@
 #include "servo_control.h"
 #include "timer.h"
 #include "button.h"
+#include <AsyncWebSocket.h>
+#include <HTTPClient.h>
 
 // Global objects
 AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
 Preferences preferences;
 Display display;
 ServoControl servoControl;
 Timer timer;
 Button button;
+
+// AI Emergency Gatekeeper
+struct EmergencySession {
+    bool active = false;
+    unsigned long startTime = 0;
+    String sessionId = "";
+    int messageCount = 0;
+    String trigger = "";
+    String personality = "supportive";
+    bool reflectionMode = false;
+    int currentReflectionQuestion = 0;
+    String reflectionResponses[5] = {"", "", "", "", ""};
+    bool reflectionCompleted = false;
+};
+
+struct ReflectionSession {
+    String trigger;
+    String personality;
+    int currentQuestion;
+    unsigned long startTime;
+    String responses[5];
+    bool completed;
+};
+
+EmergencySession currentEmergencySession;
+ReflectionSession currentReflection;
 
 // Global variables
 BoxState currentState = SETUP;
@@ -42,6 +71,31 @@ void saveStatus();
 void loadConfiguration();
 String getStatusJSON();
 void transitionToState(BoxState newState);
+// AI Emergency Gatekeeper functions
+bool isEmergencyAllowedOnCurrentNetwork();
+void startEmergencySession(String trigger);
+String getAIResponse(String userMessage, String trigger, String personality);
+String getSimpleAIResponse(String userMessage, String trigger, String personality);
+String getEnhancedAIResponse(String userMessage, String trigger, String personality, int messageCount);
+String getWelcomeMessage(String personality);
+String getTriggerAnalysis(String userMessage, String trigger, String personality);
+String getReflectionQuestion(String trigger, int questionNumber);
+String analyzeReflectionResponse(String userMessage, String trigger, String personality);
+String getCopingStrategy(String trigger, String personality);
+String getEncouragementAndAlternatives(String userMessage, String trigger, String personality);
+String getOpenAIResponse(String userMessage, String trigger, String personality);
+String getLocalAIResponse(String userMessage, String trigger, String personality);
+// Reflection system functions
+void startReflectionSession(String trigger, String personality);
+String getNextReflectionQuestion();
+void recordReflectionResponse(String response);
+String generateReflectionSummary();
+bool isReflectionSessionActive();
+void broadcastStatus();
+void updateStatistics();
+// Timer mode implementations
+void updateGradualReduction();
+void updateCompleteQuitMode();
 
 void setup() {
     Serial.begin(115200);
@@ -132,17 +186,39 @@ void loop() {
         
         // Update last unlock time
         preferences.putULong64(KEY_LAST_UNLOCK, millis());
+        
+        // Apply timer mode specific logic
+        TimerMode currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
+        if (currentMode == GRADUAL_REDUCTION) {
+            updateGradualReduction();
+        } else if (currentMode == COMPLETE_QUIT) {
+            updateCompleteQuitMode();
+        }
+        
+        // Update statistics
+        updateStatistics();
+        
+        // Broadcast status update to WebSocket clients
+        broadcastStatus();
     }
     
     // Update display periodically
     if (millis() - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL) {
         updateDisplay();
         lastDisplayUpdate = millis();
+        
+        // Broadcast status every 5 seconds when clients are connected
+        static unsigned long lastBroadcast = 0;
+        if (ws.count() > 0 && millis() - lastBroadcast >= 5000) {
+            broadcastStatus();
+            lastBroadcast = millis();
+        }
     }
     
-    // Save status periodically
+    // Save status and update statistics periodically
     if (millis() - lastStatusSave >= 60000) { // Every minute
         saveStatus();
+        updateStatistics();
         lastStatusSave = millis();
     }
     
@@ -474,8 +550,6 @@ void setupWebServer() {
         doc["apiKey"] = preferences.getString("ai_api_key", "");
         doc["delayMinutes"] = preferences.getInt("ai_delay_min", 10);
         doc["personality"] = preferences.getString("ai_personality", "supportive");
-        doc["requireQuestions"] = preferences.getBool("ai_questions", true);
-        doc["breathingExercise"] = preferences.getBool("ai_breathing", true);
         
         String response;
         serializeJson(doc, response);
@@ -483,18 +557,16 @@ void setupWebServer() {
     });
 
     server.on("/api/ai/config", HTTP_POST, [](AsyncWebServerRequest *request) {
-        // Handle POST data
+        // Handle AI configuration updates
     }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
         DynamicJsonDocument doc(1024);
         deserializeJson(doc, (char*)data);
         
-        preferences.putBool("ai_enabled", doc["enabled"].as<bool>());
+        preferences.putBool("ai_enabled", doc["enabled"]);
         preferences.putString("ai_provider", doc["provider"].as<String>());
         preferences.putString("ai_api_key", doc["apiKey"].as<String>());
-        preferences.putInt("ai_delay_min", doc["delayMinutes"].as<int>());
+        preferences.putInt("ai_delay_min", doc["delayMinutes"]);
         preferences.putString("ai_personality", doc["personality"].as<String>());
-        preferences.putBool("ai_questions", doc["requireQuestions"].as<bool>());
-        preferences.putBool("ai_breathing", doc["breathingExercise"].as<bool>());
         
         DynamicJsonDocument response(256);
         response["success"] = true;
@@ -505,95 +577,177 @@ void setupWebServer() {
         request->send(200, "application/json", responseStr);
     });
 
-    // WiFi Configuration endpoints
-    server.on("/api/wifi/status", HTTP_GET, [](AsyncWebServerRequest *request) {
-        DynamicJsonDocument doc(512);
+    // AI Emergency unlock endpoint
+    server.on("/api/emergency/ai", HTTP_POST, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument response(512);
         
-        doc["connected"] = (WiFi.status() == WL_CONNECTED);
-        if (WiFi.status() == WL_CONNECTED) {
-            doc["ssid"] = WiFi.SSID();
-            doc["ip"] = WiFi.localIP().toString();
-            doc["rssi"] = WiFi.RSSI();
-        }
-        
-        String response;
-        serializeJson(doc, response);
-        request->send(200, "application/json", response);
-    });
-
-    server.on("/api/wifi/connect", HTTP_POST, [](AsyncWebServerRequest *request) {
-        // Handle POST data
-    }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-        DynamicJsonDocument doc(512);
-        deserializeJson(doc, (char*)data);
-        
-        String ssid = doc["ssid"].as<String>();
-        String password = doc["password"].as<String>();
-        
-        if (ssid.length() > 0) {
-            // Store WiFi credentials
-            preferences.putString("wifi_ssid", ssid);
-            preferences.putString("wifi_password", password);
-            
-            // Attempt connection
-            WiFi.begin(ssid.c_str(), password.c_str());
-            
-            DynamicJsonDocument response(256);
-            response["success"] = true;
-            response["message"] = "WiFi connection initiated";
-            
+        bool aiEnabled = preferences.getBool("ai_enabled", false);
+        if (!aiEnabled) {
+            response["success"] = false;
+            response["message"] = "AI Emergency Gatekeeper not enabled";
             String responseStr;
             serializeJson(response, responseStr);
-            request->send(200, "application/json", responseStr);
-        } else {
-            request->send(400, "application/json", "{\"success\":false,\"message\":\"Invalid SSID\"}");
+            request->send(400, "application/json", responseStr);
+            return;
         }
-    });
 
-    // Security Configuration endpoints
-    server.on("/api/security/config", HTTP_GET, [](AsyncWebServerRequest *request) {
-        DynamicJsonDocument doc(1024);
-        
-        // Get allowed networks (stored as JSON string)
-        String allowedNetworksStr = preferences.getString("allowed_networks", "[]");
-        String blockedNetworksStr = preferences.getString("blocked_networks", "[]");
-        
-        DynamicJsonDocument allowedDoc(512);
-        DynamicJsonDocument blockedDoc(512);
-        deserializeJson(allowedDoc, allowedNetworksStr);
-        deserializeJson(blockedDoc, blockedNetworksStr);
-        
-        doc["allowedNetworks"] = allowedDoc.as<JsonArray>();
-        doc["blockedNetworks"] = blockedDoc.as<JsonArray>();
-        
-        String response;
-        serializeJson(doc, response);
-        request->send(200, "application/json", response);
-    });
+        // Check network restrictions
+        if (!isEmergencyAllowedOnCurrentNetwork()) {
+            response["success"] = false;
+            response["message"] = "Emergency unlock blocked on this network";
+            String responseStr;
+            serializeJson(response, responseStr);
+            request->send(403, "application/json", responseStr);
+            return;
+        }
 
-    server.on("/api/security/config", HTTP_POST, [](AsyncWebServerRequest *request) {
-        // Handle POST data
-    }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-        DynamicJsonDocument doc(1024);
-        deserializeJson(doc, (char*)data);
+        // Start AI session
+        String trigger = request->getParam("trigger", true) ? request->getParam("trigger", true)->value() : "general";
+        startEmergencySession(trigger);
         
-        // Save network lists as JSON strings
-        String allowedStr;
-        String blockedStr;
-        serializeJson(doc["allowedNetworks"], allowedStr);
-        serializeJson(doc["blockedNetworks"], blockedStr);
-        
-        preferences.putString("allowed_networks", allowedStr);
-        preferences.putString("blocked_networks", blockedStr);
-        
-        DynamicJsonDocument response(256);
         response["success"] = true;
-        response["message"] = "Security configuration saved";
+        response["aiSession"] = true;
+        response["sessionId"] = currentEmergencySession.sessionId;
+        response["minDuration"] = AI_EMERGENCY_DELAY_MINUTES * 60; // seconds
+        response["message"] = "AI Emergency session started";
         
         String responseStr;
         serializeJson(response, responseStr);
         request->send(200, "application/json", responseStr);
     });
+
+    // AI Chat endpoint
+    server.on("/api/ai/chat", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // Handle AI chat messages
+    }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(512);
+        deserializeJson(doc, (char*)data);
+        
+        DynamicJsonDocument response(1024);
+        
+        if (!currentEmergencySession.active) {
+            response["success"] = false;
+            response["message"] = "No active emergency session";
+            String responseStr;
+            serializeJson(response, responseStr);
+            request->send(400, "application/json", responseStr);
+            return;
+        }
+
+        String userMessage = doc["message"];
+        String personality = preferences.getString("ai_personality", "supportive");
+        
+        String aiResponse = getAIResponse(userMessage, currentEmergencySession.trigger, personality);
+        currentEmergencySession.messageCount++;
+        
+        unsigned long elapsed = (millis() - currentEmergencySession.startTime) / 1000;
+        unsigned long required = AI_EMERGENCY_DELAY_MINUTES * 60;
+        bool canUnlock = elapsed >= required && currentEmergencySession.messageCount >= 5;
+        
+        response["success"] = true;
+        response["message"] = aiResponse;
+        response["elapsed"] = elapsed;
+        response["required"] = required;
+        response["canUnlock"] = canUnlock;
+        response["messageCount"] = currentEmergencySession.messageCount;
+        
+        String responseStr;
+        serializeJson(response, responseStr);
+        request->send(200, "application/json", responseStr);
+    });
+
+    // Complete AI emergency unlock
+    server.on("/api/emergency/ai/complete", HTTP_POST, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument response(256);
+        
+        if (!currentEmergencySession.active) {
+            response["success"] = false;
+            response["message"] = "No active emergency session";
+            String responseStr;
+            serializeJson(response, responseStr);
+            request->send(400, "application/json", responseStr);
+            return;
+        }
+
+        unsigned long elapsed = (millis() - currentEmergencySession.startTime) / 1000;
+        unsigned long required = AI_EMERGENCY_DELAY_MINUTES * 60;
+        
+        if (elapsed >= required && currentEmergencySession.messageCount >= 5) {
+            // Grant emergency unlock
+            int emergencyCount = preferences.getInt(KEY_EMERGENCY_COUNT, 0);
+            preferences.putInt(KEY_EMERGENCY_COUNT, emergencyCount + 1);
+            
+            // Add penalty
+            int currentInterval = preferences.getInt(KEY_INTERVAL_MINUTES, DEFAULT_TIMER_MINUTES);
+            int newInterval = currentInterval + (EMERGENCY_UNLOCK_PENALTY * 2); // Double penalty for AI bypass
+            preferences.putInt(KEY_INTERVAL_MINUTES, newInterval);
+            
+            timer.stop();
+            transitionToState(UNLOCKED);
+            servoControl.unlock();
+            
+            // End session
+            currentEmergencySession.active = false;
+            
+            response["success"] = true;
+            response["penalty"] = EMERGENCY_UNLOCK_PENALTY * 2;
+            response["message"] = "Emergency unlock granted after AI session";
+            
+            Serial.println("🤖 AI Emergency unlock granted");
+        } else {
+            response["success"] = false;
+            response["message"] = "Session requirements not met";
+        }
+        
+        String responseStr;
+        serializeJson(response, responseStr);
+        request->send(200, "application/json", responseStr);
+    });
+
+    // Network security configuration
+    server.on("/api/network/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(1024);
+        
+        doc["allowedNetworks"] = preferences.getString("allowed_networks", "[]");
+        doc["blockedNetworks"] = preferences.getString("blocked_networks", "[]");
+        doc["blockOnPublic"] = preferences.getBool("block_on_public", false);
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
+    server.on("/api/network/config", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // Handle network security configuration
+    }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, (char*)data);
+        
+        preferences.putString("allowed_networks", doc["allowedNetworks"].as<String>());
+        preferences.putString("blocked_networks", doc["blockedNetworks"].as<String>());
+        preferences.putBool("block_on_public", doc["blockOnPublic"]);
+        
+        DynamicJsonDocument response(256);
+        response["success"] = true;
+        response["message"] = "Network configuration saved";
+        
+        String responseStr;
+        serializeJson(response, responseStr);
+        request->send(200, "application/json", responseStr);
+    });
+    
+    // Setup WebSocket
+    ws.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+        if (type == WS_EVT_CONNECT) {
+            Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+            // Send initial status
+            client->text(getStatusJSON());
+        } else if (type == WS_EVT_DISCONNECT) {
+            Serial.printf("WebSocket client #%u disconnected\n", client->id());
+        }
+    });
+    
+    server.addHandler(&ws);
     
     // Handle 404
     server.onNotFound([](AsyncWebServerRequest *request) {
@@ -680,13 +834,27 @@ String getStatusJSON() {
     doc["timerActive"] = timer.isActive();
     doc["emergencyCount"] = preferences.getInt(KEY_EMERGENCY_COUNT, 0);
     doc["maxEmergency"] = MAX_EMERGENCY_UNLOCKS_PER_DAY;
-    doc["todayCount"] = 0; // Implement daily counting logic
-    doc["smokeFree"] = preferences.getInt(KEY_DAYS_SMOKE_FREE, 0);
+    
+    // Enhanced statistics
     doc["totalCigarettes"] = preferences.getInt(KEY_TOTAL_CIGARETTES, 0);
-    doc["totalSaved"] = preferences.getInt(KEY_TOTAL_CIGARETTES, 0) * 0.50; // Assume $0.50 per cigarette
-    doc["totalDays"] = (millis() / 86400000); // Days since first run
+    doc["smokeFree"] = preferences.getULong64("smoke_free_days", 0);
+    doc["moneySaved"] = preferences.getFloat("money_saved", 0.0);
+    doc["totalDays"] = preferences.getULong64("total_days", 0);
     doc["longestStreak"] = preferences.getInt("longest_streak", 0);
     doc["wifiConnected"] = wifiConnected;
+    doc["currentNetwork"] = WiFi.status() == WL_CONNECTED ? WiFi.SSID() : "AP Mode";
+    
+    // AI Emergency Gatekeeper status
+    doc["aiEnabled"] = preferences.getBool("ai_enabled", false);
+    doc["emergencyAllowed"] = isEmergencyAllowedOnCurrentNetwork();
+    doc["activeSession"] = currentEmergencySession.active;
+    
+    if (currentEmergencySession.active) {
+        unsigned long elapsed = (millis() - currentEmergencySession.startTime) / 1000;
+        doc["sessionElapsed"] = elapsed;
+        doc["sessionRequired"] = AI_EMERGENCY_DELAY_MINUTES * 60;
+        doc["messageCount"] = currentEmergencySession.messageCount;
+    }
     
     // Add time information based on mode
     if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
@@ -701,4 +869,474 @@ String getStatusJSON() {
     String response;
     serializeJson(doc, response);
     return response;
+}
+
+// AI Emergency Gatekeeper functions
+bool isEmergencyAllowedOnCurrentNetwork() {
+    if (WiFi.status() != WL_CONNECTED) {
+        return true; // Allow on AP mode
+    }
+    
+    String currentSSID = WiFi.SSID();
+    bool blockOnPublic = preferences.getBool("block_on_public", false);
+    
+    // Check if network appears to be public
+    if (blockOnPublic && (currentSSID.indexOf("Free") >= 0 || 
+                         currentSSID.indexOf("Public") >= 0 || 
+                         currentSSID.indexOf("Guest") >= 0 ||
+                         currentSSID.indexOf("WiFi") >= 0)) {
+        Serial.printf("🚫 Emergency blocked on public network: %s\n", currentSSID.c_str());
+        return false;
+    }
+    
+    // Parse allowed networks JSON
+    String allowedNetworksJson = preferences.getString("allowed_networks", "[]");
+    DynamicJsonDocument allowedDoc(512);
+    deserializeJson(allowedDoc, allowedNetworksJson);
+    
+    if (allowedDoc.size() > 0) {
+        bool found = false;
+        for (size_t i = 0; i < allowedDoc.size(); i++) {
+            if (allowedDoc[i].as<String>() == currentSSID) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            Serial.printf("🚫 Emergency blocked - network not in allowed list: %s\n", currentSSID.c_str());
+            return false;
+        }
+    }
+    
+    // Parse blocked networks JSON
+    String blockedNetworksJson = preferences.getString("blocked_networks", "[]");
+    DynamicJsonDocument blockedDoc(512);
+    deserializeJson(blockedDoc, blockedNetworksJson);
+    
+    for (size_t i = 0; i < blockedDoc.size(); i++) {
+        if (blockedDoc[i].as<String>() == currentSSID) {
+            Serial.printf("🚫 Emergency blocked on blocked network: %s\n", currentSSID.c_str());
+            return false;
+        }
+    }
+    
+    return true; // Allow by default
+}
+
+void startEmergencySession(String trigger) {
+    currentEmergencySession.active = true;
+    currentEmergencySession.startTime = millis();
+    currentEmergencySession.sessionId = String(millis(), HEX);
+    currentEmergencySession.messageCount = 0;
+    currentEmergencySession.trigger = trigger;
+    
+    // Save session ID to preferences (for tracking)
+    preferences.putString("current_session_id", currentEmergencySession.sessionId);
+    
+    Serial.printf("🚀 Emergency session started: %s (Trigger: %s)\n", currentEmergencySession.sessionId.c_str(), trigger.c_str());
+}
+
+String getAIResponse(String userMessage, String trigger, String personality) {
+    String provider = preferences.getString("ai_provider", "simple");
+    
+    if (provider == "openai") {
+        return getOpenAIResponse(userMessage, trigger, personality);
+    } else if (provider == "local") {
+        return getLocalAIResponse(userMessage, trigger, personality);
+    } else {
+        // Simple rule-based responses
+        return getSimpleAIResponse(userMessage, trigger, personality);
+    }
+}
+
+String getSimpleAIResponse(String userMessage, String trigger, String personality) {
+    return getEnhancedAIResponse(userMessage, trigger, personality, currentEmergencySession.messageCount);
+}
+
+String getEnhancedAIResponse(String userMessage, String trigger, String personality, int messageCount) {
+    String response = "";
+    
+    // Progressive conversation flow
+    if (messageCount == 1) {
+        response = getWelcomeMessage(personality);
+    } else if (messageCount == 2) {
+        response = getTriggerAnalysis(userMessage, trigger, personality);
+    } else if (messageCount == 3) {
+        response = getReflectionQuestion(trigger, 0);
+    } else if (messageCount == 4) {
+        response = analyzeReflectionResponse(userMessage, trigger, personality);
+    } else if (messageCount == 5) {
+        response = getCopingStrategy(trigger, personality);
+    } else if (messageCount >= 6) {
+        response = getEncouragementAndAlternatives(userMessage, trigger, personality);
+    }
+    
+    return response;
+}
+
+String getWelcomeMessage(String personality) {
+    if (personality == "supportive") {
+        return "Hi there. I can sense you're having a tough moment right now, and I want you to know that reaching out shows incredible strength. Let's work through this together. What's going on that's making you want to smoke right now?";
+    } else if (personality == "strict") {
+        return "Hold on. Before we go any further, I need you to remember why you started this journey. You made a commitment to yourself for a reason. What was that reason, and why are you willing to throw it away right now?";
+    } else if (personality == "understanding") {
+        return "Hey, I'm here with you. No judgment, no lectures - just someone who gets that this is really hard. Take a deep breath and tell me what's happening in your world right now that's making this craving feel so intense.";
+    } else if (personality == "professional") {
+        return "Good evening. What you're experiencing right now is a completely normal part of the neuroplasticity process during smoking cessation. Let's examine the triggers and develop a cognitive strategy. Can you describe the specific circumstances that led to this craving?";
+    }
+    return "I'm here to help you through this moment. What's triggering this craving?";
+}
+
+String getTriggerAnalysis(String userMessage, String trigger, String personality) {
+    String response = "";
+    
+    if (personality == "supportive") {
+        response = "Thank you for sharing that with me. I can hear in your words that this is genuinely difficult. ";
+        if (trigger == "stress") {
+            response += "Stress can make everything feel overwhelming, but smoking won't actually solve what's stressing you - it just adds another layer of complexity. ";
+        } else if (trigger == "boredom") {
+            response += "Boredom can be surprisingly challenging because our minds start seeking familiar patterns, and smoking has been one of those patterns. ";
+        } else if (trigger == "anger") {
+            response += "Anger is such a powerful emotion, and it makes sense that you'd want to do something with that energy. ";
+        } else if (trigger == "habit") {
+            response += "Habits are deeply ingrained patterns, and it takes real awareness to even notice when they're activated. ";
+        }
+    } else if (personality == "strict") {
+        response = "I hear what you're saying, but let me challenge you on something. ";
+        if (trigger == "stress") {
+            response += "Stress is a part of life - successful people learn to handle it without crutches. When you smoke during stress, you're teaching your brain that you can't handle life's challenges. ";
+        } else if (trigger == "boredom") {
+            response += "Boredom is a choice. There are literally thousands of things you could do right now instead of smoking. The fact that you're choosing the destructive option tells me something about your priorities. ";
+        } else if (trigger == "anger") {
+            response += "Anger is energy. You can use that energy to destroy your progress, or you can channel it into something that actually solves the problem. ";
+        } else if (trigger == "habit") {
+            response += "Habits are just repeated choices. Every time you choose to smoke, you're choosing to stay trapped in the same pattern. ";
+        }
+    } else if (personality == "understanding") {
+        response = "I really appreciate you being honest with me about what's going on. ";
+        if (trigger == "stress") {
+            response += "Stress is one of the hardest triggers because it feels so immediate and overwhelming. Your brain is looking for the fastest relief it knows. ";
+        } else if (trigger == "boredom") {
+            response += "Boredom hits different when you're trying to quit because suddenly you have all this time and mental space that used to be filled with smoking. ";
+        } else if (trigger == "anger") {
+            response += "Anger can feel like it needs an immediate outlet, and smoking has probably been that outlet for a while. ";
+        } else if (trigger == "habit") {
+            response += "Habitual cravings are tricky because they can hit you even when you don't really want to smoke - it's just what your brain expects to do. ";
+        }
+    } else if (personality == "professional") {
+        response = "Based on your description, we can identify specific neural pathways being activated. ";
+        if (trigger == "stress") {
+            response += "Stress activates the hypothalamic-pituitary-adrenal axis, which has been conditioned to expect nicotine as a coping mechanism. ";
+        } else if (trigger == "boredom") {
+            response += "Dopamine-seeking behavior often manifests during understimulation, when the brain seeks familiar reward patterns. ";
+        } else if (trigger == "anger") {
+            response += "Emotional dysregulation often triggers conditioned responses that were developed as self-soothing mechanisms. ";
+        } else if (trigger == "habit") {
+            response += "Automatic behavioral patterns stored in the basal ganglia are being activated by environmental or temporal cues. ";
+        }
+    }
+    
+    return response + "Let me ask you something that might help us understand this better...";
+}
+
+String getReflectionQuestion(String trigger, int questionNumber) {
+    String questions[5];
+    
+    if (trigger == "stress") {
+        questions[0] = "If you could solve the stress you're feeling right now without smoking, what would that solution look like?";
+        questions[1] = "Think back to a time when you handled stress really well without smoking. What was different about that situation?";
+        questions[2] = "What's the worst thing that would happen if you just sat with this stress for 10 more minutes without doing anything?";
+        questions[3] = "If your best friend was feeling this exact stress, what advice would you give them?";
+        questions[4] = "How will you feel about smoking in exactly one hour from now?";
+    } else if (trigger == "boredom") {
+        questions[0] = "What's something you've been putting off that you could tackle right now instead?";
+        questions[1] = "If you had to choose between being bored for 10 minutes or disappointed in yourself for hours, which would you pick?";
+        questions[2] = "What activities used to excite you before smoking became your go-to boredom fix?";
+        questions[3] = "If someone gave you $50 to stay busy for the next hour without smoking, what would you do?";
+        questions[4] = "What would happen if you just let yourself be bored for a few minutes without trying to fix it?";
+    } else if (trigger == "anger") {
+        questions[0] = "What are you really angry about - the situation, or feeling like you need a cigarette to handle it?";
+        questions[1] = "If you smoke right now, will you be less angry, or just angry AND disappointed in yourself?";
+        questions[2] = "What would handling this anger like a complete badass look like?";
+        questions[3] = "What's the angriest you've ever been when you handled it perfectly without smoking?";
+        questions[4] = "Will the thing you're angry about matter in a week? Will breaking your quit attempt matter in a week?";
+    } else if (trigger == "habit") {
+        questions[0] = "What usually happens right before this habitual moment that we could change?";
+        questions[1] = "If you had to replace this smoking habit with a different 5-minute habit, what would it be?";
+        questions[2] = "What's the real reward your brain is seeking right now - the nicotine, or the break/pause/ritual?";
+        questions[3] = "How could you give yourself the same mental break without the cigarette?";
+        questions[4] = "What would your future self, who successfully quit, tell you about this moment?";
+    } else {
+        questions[0] = "What specific situation or feeling triggered this craving right now?";
+        questions[1] = "How has smoking helped you in similar situations before, and did it actually solve the underlying issue?";
+        questions[2] = "What would you do right now if smoking wasn't an option at all?";
+        questions[3] = "What's one thing you could do in the next 5 minutes that would make you feel proud of yourself?";
+        questions[4] = "If you successfully resist this craving, how will you feel about yourself tomorrow?";
+    }
+    
+    return questions[questionNumber % 5];
+}
+
+String analyzeReflectionResponse(String userMessage, String trigger, String personality) {
+    String response = "";
+    
+    if (personality == "supportive") {
+        response = "That's a really thoughtful answer. I can see you're genuinely thinking about this, which shows you care about your success. ";
+        response += "What you just shared actually gives us a path forward. Instead of smoking, what if we tried to address what you identified? ";
+    } else if (personality == "strict") {
+        response = "Good. Now you're thinking instead of just reacting. That's exactly the mental discipline you need to succeed. ";
+        response += "You have the answer right there - you just need to act on it instead of taking the easy way out. ";
+    } else if (personality == "understanding") {
+        response = "Thank you for really considering that question. Your answer tells me you have more insight into this than you might realize. ";
+        response += "It sounds like there might be a way to handle this situation that honors both your feelings and your commitment to quitting. ";
+    } else if (personality == "professional") {
+        response = "Your response indicates good self-awareness and cognitive flexibility. This suggests your prefrontal cortex is engaging effectively. ";
+        response += "Let's build on this insight with a specific behavioral intervention strategy. ";
+    }
+    
+    return response + "Here's what I'd like you to try instead...";
+}
+
+String getCopingStrategy(String trigger, String personality) {
+    String strategy = "";
+    
+    if (trigger == "stress") {
+        if (personality == "supportive") {
+            strategy = "Let's do a quick stress-release technique together. First, take 3 deep breaths - in for 4 counts, hold for 4, out for 6. Then, write down or mentally list 3 things that are within your control right now, even if they're small. Focus on just one of those things for the next 10 minutes.";
+        } else if (personality == "strict") {
+            strategy = "Stop making excuses and start making solutions. Right now: 1) Stand up and do 20 jumping jacks, 2) Write down exactly what's stressing you, 3) Write down one action you can take today to improve it, 4) Take that action. Stress doesn't give you permission to quit your quit.";
+        } else if (personality == "understanding") {
+            strategy = "It's okay to feel stressed - that's part of being human. Try this: place your hand on your chest and feel your heartbeat. Remind yourself that this stress will pass, just like all the other stresses you've survived. Maybe do something that usually comforts you - listen to music, take a warm shower, or call someone who cares about you.";
+        } else if (personality == "professional") {
+            strategy = "Implement a structured stress response protocol: 1) Progressive muscle relaxation (tense and release each muscle group for 5 seconds), 2) Cognitive reframing (identify the specific stressor and three potential solutions), 3) Grounding technique (name 5 things you can see, 4 you can touch, 3 you can hear).";
+        }
+    } else if (trigger == "boredom") {
+        if (personality == "supportive") {
+            strategy = "Boredom is actually a gift - it means your mind is ready for something new. How about: text someone you haven't talked to in a while, organize one small area of your space, or spend 10 minutes learning something random online. The goal isn't to be productive, just to redirect your brain's energy.";
+        } else if (personality == "strict") {
+            strategy = "Boredom is a luxury problem. Do 50 push-ups right now, then clean something, then learn something. If you have time to be bored, you have time to improve yourself. Make this craving cost you something positive instead of something destructive.";
+        } else if (personality == "understanding") {
+            strategy = "Being bored when you're quitting can feel really uncomfortable because you're used to filling that space with smoking. It's okay to just sit with the boredom for a minute. Maybe try a gentle activity like stretching, making tea, or just looking out the window and noticing what you see.";
+        } else if (personality == "professional") {
+            strategy = "Engage your dopamine system through novel, low-commitment activities: 1) Learn three new facts about a topic that interests you, 2) Rearrange your immediate environment, 3) Practice a brief mindfulness exercise focusing on sensory input rather than thought suppression.";
+        }
+    } else if (trigger == "anger") {
+        if (personality == "supportive") {
+            strategy = "That anger is real and valid. Let's channel it constructively: try doing vigorous exercise for 2-3 minutes, punch a pillow, or write an angry letter you'll never send. Your anger doesn't need a cigarette to be heard - it needs movement and expression.";
+        } else if (personality == "strict") {
+            strategy = "Use that anger as fuel. Angry at the situation? Fix it. Angry at yourself? Prove you're stronger. Angry at others? Show them what you're made of by succeeding. Channel that fire into determination, not destruction.";
+        } else if (personality == "understanding") {
+            strategy = "Anger can feel so intense and urgent. It's completely understandable that you'd want to do something with that energy. Try this: set a timer for 5 minutes and let yourself feel angry without judging it. Sometimes anger just needs to be acknowledged before it can pass.";
+        } else if (personality == "professional") {
+            strategy = "Implement emotional regulation through physiological intervention: 1) Cold water on wrists and face to activate the dive response, 2) Bilateral stimulation (alternate tapping left and right sides of your body), 3) Expressive writing for 90 seconds to process the emotional content.";
+        }
+    } else if (trigger == "habit") {
+        if (personality == "supportive") {
+            strategy = "Habits are so automatic, which is why they're extra tricky. Let's interrupt the pattern: do the first part of your smoking routine, but replace the cigarette with something else - hold a pen like a cigarette, step outside but do jumping jacks instead, or take the break but drink water.";
+        } else if (personality == "strict") {
+            strategy = "Habits are just weak excuses. You control your actions, not the other way around. Right now: do the opposite of what the habit wants. If you usually smoke sitting down, stand up and pace. If you smoke outside, stay inside. Break the pattern by choosing differently.";
+        } else if (personality == "understanding") {
+            strategy = "Habitual cravings can sneak up on you because they're not really about wanting to smoke - they're about the familiar routine. Try keeping most of the routine but swapping out the cigarette: take the same break, go to the same place, but chew gum or do breathing exercises instead.";
+        } else if (personality == "professional") {
+            strategy = "Disrupt the automated behavior chain through pattern interruption: 1) Change your physical position/location, 2) Perform a competing behavior (if you normally use your hands, keep them busy), 3) Introduce a 2-minute delay before any smoking-related action to reactivate conscious decision-making.";
+        }
+    } else {
+        strategy = "Try this immediate action plan: 1) Change your environment (move to a different room or go outside), 2) Do something physical for 2 minutes (walk, stretch, clean), 3) Engage your senses (smell something pleasant, listen to music, taste mint gum), 4) Connect with your motivation (look at a photo that reminds you why you're quitting).";
+    }
+    
+    return strategy;
+}
+
+String getEncouragementAndAlternatives(String userMessage, String trigger, String personality) {
+    String response = "";
+    
+    if (personality == "supportive") {
+        response = "You've been talking with me for several minutes now, which means you're already winning. Every second you delay is your brain building new, healthier pathways. I'm proud of how you're handling this. ";
+        response += "Here are three things you could do right now instead: 1) Take a hot shower, 2) Call someone who makes you laugh, 3) Go for a walk around the block. Which one feels most appealing?";
+    } else if (personality == "strict") {
+        response = "You've proven you can resist for this long, which means you're stronger than your addiction. Don't waste that strength now. ";
+        response += "Your options: 1) Go exercise until you're tired, 2) Do something productive you've been avoiding, 3) Face this craving head-on and prove you're in control. What's it going to be?";
+    } else if (personality == "understanding") {
+        response = "Look how far you've come in this conversation. That's not accident - that's your real self choosing your long-term happiness over short-term relief. ";
+        response += "Some gentle alternatives: 1) Make yourself a special drink (tea, coffee, smoothie), 2) Put on music that makes you feel good, 3) Do something nice for someone else. What sounds good to you?";
+    } else if (personality == "professional") {
+        response = "You've successfully extended the decision-making window and engaged higher-order cognitive processes. This indicates strong executive function and impulse control capacity. ";
+        response += "Evidence-based alternatives include: 1) 4-7-8 breathing technique (proven to reduce cortisol), 2) Progressive muscle relaxation (activates parasympathetic nervous system), 3) Brief high-intensity exercise (releases endorphins naturally). Which intervention appeals to your current psychological state?";
+    }
+    
+    return response;
+}
+
+String getOpenAIResponse(String userMessage, String trigger, String personality) {
+    String apiKey = preferences.getString("ai_api_key", "");
+    if (apiKey.length() == 0) {
+        return "OpenAI API key not configured. Please set it in Settings.";
+    }
+    
+    HTTPClient http;
+    http.begin("https://api.openai.com/v1/chat/completions");
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("Authorization", "Bearer " + apiKey);
+    
+    // Construct prompt based on personality and trigger
+    String systemPrompt = "You are a " + personality + " smoking cessation counselor. ";
+    systemPrompt += "The user is experiencing a '" + trigger + "' trigger and wants to access cigarettes. ";
+    systemPrompt += "Your goal is to help them resist this urge through conversation, coping strategies, and encouragement. ";
+    systemPrompt += "Be empathetic but firm. Provide practical alternatives. Keep responses under 200 words.";
+    
+    DynamicJsonDocument requestDoc(1024);
+    requestDoc["model"] = "gpt-3.5-turbo";
+    requestDoc["messages"][0]["role"] = "system";
+    requestDoc["messages"][0]["content"] = systemPrompt;
+    requestDoc["messages"][1]["role"] = "user";
+    requestDoc["messages"][1]["content"] = userMessage;
+    requestDoc["max_tokens"] = 200;
+    requestDoc["temperature"] = 0.7;
+    
+    String requestBody;
+    serializeJson(requestDoc, requestBody);
+    
+    int httpResponseCode = http.POST(requestBody);
+    
+    if (httpResponseCode == 200) {
+        String response = http.getString();
+        DynamicJsonDocument responseDoc(2048);
+        deserializeJson(responseDoc, response);
+        
+        String aiResponse = responseDoc["choices"][0]["message"]["content"];
+        http.end();
+        return aiResponse;
+    } else {
+        http.end();
+        return "AI service temporarily unavailable. Try the simple mode instead.";
+    }
+}
+
+String getLocalAIResponse(String userMessage, String trigger, String personality) {
+    // Placeholder for local AI integration (Ollama, etc.)
+    return "Local AI not yet implemented. Using simple responses instead.\n\n" + 
+           getSimpleAIResponse(userMessage, trigger, personality);
+}
+
+// Reflection Question System
+void startReflectionSession(String trigger, String personality) {
+    currentReflection.trigger = trigger;
+    currentReflection.personality = personality;
+    currentReflection.currentQuestion = 0;
+    currentReflection.startTime = millis();
+    currentReflection.completed = false;
+    
+    for (int i = 0; i < 5; i++) {
+        currentReflection.responses[i] = "";
+    }
+    
+    // Also update the emergency session
+    currentEmergencySession.reflectionMode = true;
+    currentEmergencySession.currentReflectionQuestion = 0;
+    currentEmergencySession.reflectionCompleted = false;
+}
+
+String getNextReflectionQuestion() {
+    if (currentReflection.currentQuestion >= 5) {
+        currentReflection.completed = true;
+        currentEmergencySession.reflectionCompleted = true;
+        return generateReflectionSummary();
+    }
+    
+    String question = getReflectionQuestion(currentReflection.trigger, currentReflection.currentQuestion);
+    return question;
+}
+
+void recordReflectionResponse(String response) {
+    if (currentReflection.currentQuestion < 5) {
+        currentReflection.responses[currentReflection.currentQuestion] = response;
+        currentEmergencySession.reflectionResponses[currentReflection.currentQuestion] = response;
+        currentReflection.currentQuestion++;
+        currentEmergencySession.currentReflectionQuestion++;
+    }
+}
+
+String generateReflectionSummary() {
+    String summary = "You've spent " + String((millis() - currentReflection.startTime) / 60000) + " minutes reflecting on this craving. ";
+    summary += "Based on your responses, it seems like the core issue is about ";
+    
+    if (currentReflection.trigger == "stress") {
+        summary += "finding better ways to manage pressure without smoking. ";
+    } else if (currentReflection.trigger == "boredom") {
+        summary += "creating more engaging activities in your daily routine. ";
+    } else if (currentReflection.trigger == "anger") {
+        summary += "channeling your anger into constructive actions rather than destructive habits. ";
+    } else if (currentReflection.trigger == "habit") {
+        summary += "building new, healthier automatic responses to replace old patterns. ";
+    } else {
+        summary += "understanding your triggers and developing personalized coping strategies. ";
+    }
+    
+    summary += "\n\nYou have the insights you need - now it's about choosing to act on them instead of smoking. ";
+    summary += "What specific action will you take right now to honor the reflection work you've just done?";
+    
+    return summary;
+}
+
+bool isReflectionSessionActive() {
+    return currentEmergencySession.reflectionMode && !currentEmergencySession.reflectionCompleted;
+}
+
+void broadcastStatus() {
+    if (ws.count() > 0) {
+        String statusJSON = getStatusJSON();
+        ws.textAll(statusJSON);
+    }
+}
+
+void updateStatistics() {
+    unsigned long currentTime = millis();
+    unsigned long firstStart = preferences.getULong64("first_start", currentTime);
+    
+    if (firstStart == currentTime) {
+        preferences.putULong64("first_start", currentTime);
+    }
+    
+    unsigned long daysSinceStart = (currentTime - firstStart) / 86400000UL;
+    int totalCigarettes = preferences.getInt(KEY_TOTAL_CIGARETTES, 0);
+    float cigaretteCost = preferences.getFloat("cigarette_cost", 0.50); // Default $0.50 per cigarette
+    float moneySaved = totalCigarettes * cigaretteCost;
+    
+    preferences.putULong64("total_days", daysSinceStart);
+    preferences.putFloat("money_saved", moneySaved);
+    
+    // Calculate smoke-free days (days without smoking)
+    unsigned long lastUsage = preferences.getULong64(KEY_LAST_UNLOCK, 0);
+    if (lastUsage > 0) {
+        unsigned long daysSinceLastUsage = (currentTime - lastUsage) / 86400000UL;
+        preferences.putULong64("smoke_free_days", daysSinceLastUsage);
+    }
+}
+
+void updateGradualReduction() {
+    int currentInterval = preferences.getInt(KEY_INTERVAL_MINUTES, DEFAULT_TIMER_MINUTES);
+    int usageCount = preferences.getInt(KEY_TOTAL_CIGARETTES, 0);
+    
+    // Increase interval by 5 minutes every 10 uses
+    int newInterval = DEFAULT_TIMER_MINUTES + (usageCount / 10) * 5;
+    newInterval = min(newInterval, MAX_TIMER_MINUTES);
+    
+    if (newInterval > currentInterval) {
+        preferences.putInt(KEY_INTERVAL_MINUTES, newInterval);
+        Serial.printf("📈 Gradual reduction: interval increased to %d minutes\n", newInterval);
+    }
+}
+
+void updateCompleteQuitMode() {
+    int usageCount = preferences.getInt(KEY_TOTAL_CIGARETTES, 0);
+    int currentInterval = preferences.getInt(KEY_INTERVAL_MINUTES, DEFAULT_TIMER_MINUTES);
+    
+    // Progressive lockout: each use doubles the interval (with max)
+    int newInterval = DEFAULT_TIMER_MINUTES * pow(2, usageCount / 5); // Double every 5 uses
+    newInterval = min(newInterval, MAX_TIMER_MINUTES);
+    
+    if (newInterval > currentInterval) {
+        preferences.putInt(KEY_INTERVAL_MINUTES, newInterval);
+        Serial.printf("🎯 Complete quit mode: interval increased to %d minutes\n", newInterval);
+    }
 }

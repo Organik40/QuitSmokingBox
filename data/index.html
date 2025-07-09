@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quit Smoking Timer Box - Configuration</title>
+    <meta name="description" content="An open-source timer box to help control smoking habits and quit entirely">
+    <meta name="theme-color" content="#6B73FF">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    
+    <!-- Stylesheet -->
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -24,7 +35,11 @@
         <main class="main-content">
             <!-- Status Card -->
             <div class="card status-card">
-                <h2>📊 Current Status</h2>
+                <h2>📊 Current Status 
+                    <span class="realtime-indicator" id="realtimeIndicator">
+                        Real-time updates
+                    </span>
+                </h2>
                 <div class="status-grid">
                     <div class="status-item">
                         <span class="label">Box State:</span>
@@ -35,12 +50,32 @@
                         <span class="value countdown" id="timeRemaining">--:--:--</span>
                     </div>
                     <div class="status-item">
-                        <span class="label">Today's Count:</span>
-                        <span class="value" id="todayCount">0</span>
+                        <span class="label">Emergency Count:</span>
+                        <span class="value" id="emergencyCount">0</span> / <span id="maxEmergency">3</span>
                     </div>
                     <div class="status-item">
-                        <span class="label">Days Smoke Free:</span>
-                        <span class="value" id="smokeFree">0</span>
+                        <span class="label">Network:</span>
+                        <span class="network-status" id="networkStatus">Checking...</span>
+                    </div>
+                </div>
+                
+                <!-- Enhanced Statistics -->
+                <div class="stats-enhanced">
+                    <div class="stat-item-enhanced">
+                        <span class="stat-value-large" id="smokeFree">0</span>
+                        <span class="stat-label-enhanced">Days Smoke Free</span>
+                    </div>
+                    <div class="stat-item-enhanced">
+                        <span class="stat-value-large" id="moneySaved">$0.00</span>
+                        <span class="stat-label-enhanced">Money Saved</span>
+                    </div>
+                    <div class="stat-item-enhanced">
+                        <span class="stat-value-large" id="totalCigarettes">0</span>
+                        <span class="stat-label-enhanced">Total Uses</span>
+                    </div>
+                    <div class="stat-item-enhanced">
+                        <span class="stat-value-large" id="totalDays">0</span>
+                        <span class="stat-label-enhanced">Total Days</span>
                     </div>
                 </div>
             </div>
@@ -138,11 +173,11 @@
                         <div class="stat-label">Money Saved</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-number" id="totalCigarettes">0</div>
+                        <div class="stat-number" id="totalCigarettesOld">0</div>
                         <div class="stat-label">Cigarettes Avoided</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-number" id="totalDays">0</div>
+                        <div class="stat-number" id="totalDaysOld">0</div>
                         <div class="stat-label">Days Using Box</div>
                     </div>
                     <div class="stat-item">

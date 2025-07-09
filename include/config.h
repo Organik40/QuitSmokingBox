@@ -34,6 +34,14 @@
 #define DEFAULT_EMERGENCY_DELAY_MINUTES 5  // cooling-off period for normal mode
 #define AI_EMERGENCY_DELAY_MINUTES 10      // AI gatekeeper session minimum time
 
+// AI Emergency Gatekeeper Settings
+#define AI_MIN_MESSAGES 5           // Minimum messages before unlock allowed
+#define AI_MAX_SESSION_TIME 1800    // 30 minutes max session time
+
+// Statistics and Progress Tracking
+#define DEFAULT_CIGARETTE_COST 0.50 // Default cost per cigarette in dollars
+#define STATISTICS_UPDATE_INTERVAL 300000 // Update statistics every 5 minutes
+
 // Button Settings
 #define BUTTON_DEBOUNCE_DELAY 50 // Debounce delay for button in milliseconds
 

@@ -1,0 +1,28 @@
+{
+  "name": "Quit Smoking Timer Box",
+  "short_name": "QuitBox",
+  "description": "An open-source timer box to help control smoking habits and quit entirely",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6b73ff",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["health", "lifestyle", "utilities"],
+  "lang": "en",
+  "dir": "ltr"
+}

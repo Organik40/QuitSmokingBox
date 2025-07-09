@@ -4,10 +4,106 @@ class SmokingTimerBox {
         this.apiBase = '';
         this.updateInterval = null;
         this.currentState = {};
+        this.websocket = null;
+        this.aiSession = null;
         
+        this.initializeWebSocket();
         this.initializeEventListeners();
         this.startPeriodicUpdates();
         this.loadConfiguration();
+        
+        // Check for PWA support
+        this.initializePWA();
+    }
+
+    initializeWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        
+        this.websocket = new WebSocket(wsUrl);
+        
+        this.websocket.onopen = () => {
+            console.log('🌐 WebSocket connected - Real-time updates enabled');
+            this.showMessage('Real-time updates enabled', 'success');
+        };
+        
+        this.websocket.onmessage = (event) => {
+            try {
+                const status = JSON.parse(event.data);
+                this.currentState = status;
+                this.updateDisplay(status);
+            } catch (error) {
+                console.error('WebSocket message parsing error:', error);
+            }
+        };
+        
+        this.websocket.onclose = () => {
+            console.log('🔌 WebSocket disconnected - Falling back to periodic updates');
+            this.showMessage('Real-time updates disabled - using periodic refresh', 'warning');
+            
+            // Attempt to reconnect after 5 seconds
+            setTimeout(() => {
+                this.initializeWebSocket();
+            }, 5000);
+        };
+        
+        this.websocket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+    }
+
+    initializePWA() {
+        // Register service worker if available
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+        
+        // Add to home screen prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Show install button
+            this.showInstallPrompt(deferredPrompt);
+        });
+    }
+
+    showInstallPrompt(deferredPrompt) {
+        const installPrompt = document.createElement('div');
+        installPrompt.className = 'install-prompt';
+        installPrompt.innerHTML = `
+            <div class="install-content">
+                <span>📱 Install Quit Smoking Timer Box as an app?</span>
+                <button id="installBtn" class="btn btn-primary">Install</button>
+                <button id="dismissBtn" class="btn btn-secondary">Maybe Later</button>
+            </div>
+        `;
+        
+        document.body.appendChild(installPrompt);
+        
+        document.getElementById('installBtn').addEventListener('click', () => {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the A2HS prompt');
+                }
+                deferredPrompt = null;
+                installPrompt.remove();
+            });
+        });
+        
+        document.getElementById('dismissBtn').addEventListener('click', () => {
+            installPrompt.remove();
+        });
     }
 
     initializeEventListeners() {
@@ -165,6 +261,16 @@ class SmokingTimerBox {
     }
 
     updateDisplay(status) {
+        // Update real-time indicator
+        const realtimeIndicator = document.getElementById('realtimeIndicator');
+        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            realtimeIndicator.classList.add('active');
+            realtimeIndicator.textContent = 'Real-time updates';
+        } else {
+            realtimeIndicator.classList.remove('active');
+            realtimeIndicator.textContent = 'Periodic updates';
+        }
+        
         // Update status badge
         const statusBadge = document.getElementById('statusBadge');
         const statusText = document.getElementById('statusText');
@@ -187,20 +293,83 @@ class SmokingTimerBox {
                 statusBadge.style.background = '#6B7280';
         }
 
+        // Update network status
+        const networkStatus = document.getElementById('networkStatus');
+        if (status.wifiConnected) {
+            if (status.currentNetwork === 'AP Mode') {
+                networkStatus.textContent = 'AP Mode';
+                networkStatus.className = 'network-status ap-mode';
+            } else {
+                networkStatus.textContent = status.currentNetwork;
+                networkStatus.className = 'network-status connected';
+            }
+        } else {
+            networkStatus.textContent = 'Disconnected';
+            networkStatus.className = 'network-status disconnected';
+        }
+
         // Update status values
         document.getElementById('boxState').textContent = this.getStateText(status.boxState);
         document.getElementById('timeRemaining').textContent = this.formatTime(status.timeRemaining || 0);
-        document.getElementById('todayCount').textContent = status.todayCount || 0;
-        document.getElementById('smokeFree').textContent = status.smokeFree || 0;
+        document.getElementById('emergencyCount').textContent = status.emergencyCount || 0;
+        document.getElementById('maxEmergency').textContent = status.maxEmergency || 3;
 
-        // Update statistics
-        document.getElementById('totalSaved').textContent = `$${(status.totalSaved || 0).toFixed(2)}`;
+        // Update enhanced statistics (new layout)
+        document.getElementById('smokeFree').textContent = status.smokeFree || 0;
+        document.getElementById('moneySaved').textContent = `$${(status.moneySaved || 0).toFixed(2)}`;
         document.getElementById('totalCigarettes').textContent = status.totalCigarettes || 0;
         document.getElementById('totalDays').textContent = status.totalDays || 0;
-        document.getElementById('longestStreak').textContent = status.longestStreak || 0;
+
+        // Update old statistics section if it exists
+        const totalSavedOld = document.getElementById('totalSaved');
+        const totalCigarettesOld = document.getElementById('totalCigarettesOld');
+        const totalDaysOld = document.getElementById('totalDaysOld');
+        const longestStreak = document.getElementById('longestStreak');
+        
+        if (totalSavedOld) totalSavedOld.textContent = `$${(status.moneySaved || 0).toFixed(2)}`;
+        if (totalCigarettesOld) totalCigarettesOld.textContent = status.totalCigarettes || 0;
+        if (totalDaysOld) totalDaysOld.textContent = status.totalDays || 0;
+        if (longestStreak) longestStreak.textContent = status.longestStreak || 0;
 
         // Update button states
         this.updateButtonStates(status);
+        
+        // Update AI emergency status if applicable
+        if (status.aiEnabled) {
+            this.updateAIStatus(status);
+        }
+    }
+
+    updateAIStatus(status) {
+        // Update emergency button text to indicate AI mode
+        const emergencyBtn = document.getElementById('emergencyBtn');
+        if (emergencyBtn && !emergencyBtn.disabled) {
+            if (status.emergencyAllowed) {
+                emergencyBtn.textContent = `🤖 AI Emergency (${status.emergencyCount || 0}/${status.maxEmergency || 3})`;
+            } else {
+                emergencyBtn.textContent = '🚫 Emergency Blocked (Network)';
+                emergencyBtn.disabled = true;
+            }
+        }
+        
+        // Show AI session status if active
+        if (status.activeSession) {
+            const sessionInfo = document.createElement('div');
+            sessionInfo.className = 'ai-session-info';
+            sessionInfo.innerHTML = `
+                <div style="background: var(--ai-bg); padding: 10px; border-radius: 8px; margin: 10px 0;">
+                    🤖 AI Emergency session active - ${Math.floor(status.sessionElapsed / 60)}:${(status.sessionElapsed % 60).toString().padStart(2, '0')} elapsed
+                </div>
+            `;
+            
+            // Remove existing session info
+            const existing = document.querySelector('.ai-session-info');
+            if (existing) existing.remove();
+            
+            // Add to status card
+            const statusCard = document.querySelector('.status-card');
+            statusCard.appendChild(sessionInfo);
+        }
     }
 
     getStateText(state) {
@@ -383,15 +552,235 @@ class SmokingTimerBox {
     }
 
     async handleEmergencyUnlock() {
+        // Check if emergency is allowed on current network
+        const status = await this.apiCall('/api/status');
+        if (status && !status.emergencyAllowed) {
+            this.showMessage('Emergency unlock is blocked on this network for your safety.', 'error');
+            return;
+        }
+        
         // First check if AI gatekeeper is enabled
         const aiSettings = await this.apiCall('/api/ai/config');
         
         if (aiSettings && aiSettings.enabled) {
-            this.startAIEmergencySession();
+            this.showEmergencyTriggerSelection();
         } else {
             // Normal emergency unlock with 5-minute delay
             this.startNormalEmergencyDelay();
         }
+    }
+
+    showEmergencyTriggerSelection() {
+        const triggerModal = document.createElement('div');
+        triggerModal.className = 'modal';
+        triggerModal.style.display = 'flex';
+        triggerModal.innerHTML = `
+            <div class="modal-content">
+                <h3>🤖 AI Emergency Gatekeeper</h3>
+                <p>What triggered this craving? This helps me provide better support.</p>
+                <div style="margin: 20px 0;">
+                    <button class="trigger-btn btn btn-secondary" data-trigger="stress">😰 Stress</button>
+                    <button class="trigger-btn btn btn-secondary" data-trigger="boredom">😴 Boredom</button>
+                    <button class="trigger-btn btn btn-secondary" data-trigger="anger">😡 Anger</button>
+                    <button class="trigger-btn btn btn-secondary" data-trigger="habit">🔄 Habit</button>
+                    <button class="trigger-btn btn btn-secondary" data-trigger="social">👥 Social</button>
+                    <button class="trigger-btn btn btn-secondary" data-trigger="other">❓ Other</button>
+                </div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button id="cancelAI" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(triggerModal);
+        
+        // Add event listeners for trigger buttons
+        triggerModal.querySelectorAll('.trigger-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const trigger = btn.getAttribute('data-trigger');
+                triggerModal.remove();
+                this.startAIEmergencySession(trigger);
+            });
+        });
+        
+        document.getElementById('cancelAI').addEventListener('click', () => {
+            triggerModal.remove();
+        });
+    }
+
+    async startAIEmergencySession(trigger = 'general') {
+        // Start AI session
+        const response = await this.apiCall('/api/emergency/ai', 'POST', { trigger: trigger });
+        
+        if (response && response.success) {
+            this.aiSession = {
+                id: response.sessionId,
+                startTime: Date.now(),
+                minDuration: response.minDuration * 1000, // Convert to milliseconds
+                trigger: trigger,
+                messageCount: 0
+            };
+            
+            this.showAIChatInterface();
+        } else {
+            this.showMessage(response ? response.message : 'Failed to start AI session', 'error');
+        }
+    }
+
+    showAIChatInterface() {
+        const chatModal = document.createElement('div');
+        chatModal.className = 'modal ai-chat-modal';
+        chatModal.style.display = 'flex';
+        chatModal.innerHTML = `
+            <div class="modal-content ai-chat-content">
+                <div class="ai-chat-header">
+                    <h3>🤖 AI Emergency Gatekeeper</h3>
+                    <div class="session-timer">
+                        <span id="sessionTimer">10:00</span> remaining
+                    </div>
+                </div>
+                
+                <div class="ai-chat-messages" id="aiChatMessages">
+                    <div class="ai-message">
+                        <strong>AI Counselor:</strong> I understand you're experiencing a craving. Let's talk through this together. What's going on right now?
+                    </div>
+                </div>
+                
+                <div class="ai-chat-input">
+                    <div class="input-group">
+                        <input type="text" id="userMessage" placeholder="Tell me what you're feeling..." class="form-control">
+                        <button id="sendMessage" class="btn btn-primary">Send</button>
+                    </div>
+                </div>
+                
+                <div class="ai-chat-footer">
+                    <div class="session-info">
+                        <span id="messageCount">0</span> messages • 
+                        <span id="sessionStatus">Minimum 10 minutes conversation required</span>
+                    </div>
+                    <button id="completeSession" class="btn btn-success" disabled>Complete Session & Unlock</button>
+                    <button id="cancelSession" class="btn btn-secondary">Cancel Session</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(chatModal);
+        
+        // Initialize chat functionality
+        this.initializeAIChat(chatModal);
+    }
+
+    initializeAIChat(chatModal) {
+        const userMessageInput = chatModal.querySelector('#userMessage');
+        const sendBtn = chatModal.querySelector('#sendMessage');
+        const messagesContainer = chatModal.querySelector('#aiChatMessages');
+        const completeBtn = chatModal.querySelector('#completeSession');
+        const cancelBtn = chatModal.querySelector('#cancelSession');
+        const timerDisplay = chatModal.querySelector('#sessionTimer');
+        const messageCountDisplay = chatModal.querySelector('#messageCount');
+        const statusDisplay = chatModal.querySelector('#sessionStatus');
+        
+        // Send message functionality
+        const sendMessage = async () => {
+            const message = userMessageInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to chat
+            this.addChatMessage(messagesContainer, message, true);
+            userMessageInput.value = '';
+            
+            // Send to AI
+            const response = await this.apiCall('/api/ai/chat', 'POST', { message: message });
+            
+            if (response && response.success) {
+                // Add AI response
+                this.addChatMessage(messagesContainer, response.message, false);
+                
+                // Update session status
+                this.aiSession.messageCount = response.messageCount;
+                messageCountDisplay.textContent = response.messageCount;
+                
+                // Check if unlock is available
+                if (response.canUnlock) {
+                    completeBtn.disabled = false;
+                    statusDisplay.textContent = 'Session requirements met - you may unlock';
+                    statusDisplay.style.color = 'var(--success-color)';
+                }
+            }
+        };
+        
+        sendBtn.addEventListener('click', sendMessage);
+        userMessageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Complete session
+        completeBtn.addEventListener('click', async () => {
+            const result = await this.apiCall('/api/emergency/ai/complete', 'POST');
+            if (result && result.success) {
+                chatModal.remove();
+                this.showMessage(`Emergency unlock granted with ${result.penalty} minute penalty.`, 'success');
+                this.updateStatus();
+            } else {
+                this.showMessage(result ? result.message : 'Session requirements not met', 'error');
+            }
+        });
+        
+        // Cancel session
+        cancelBtn.addEventListener('click', () => {
+            chatModal.remove();
+            this.aiSession = null;
+        });
+        
+        // Start session timer
+        this.startAISessionTimer(timerDisplay, statusDisplay);
+    }
+
+    addChatMessage(container, message, isUser) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = isUser ? 'user-message' : 'ai-message';
+        messageDiv.innerHTML = `<strong>${isUser ? 'You' : 'AI Counselor'}:</strong> ${message}`;
+        container.appendChild(messageDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    startAISessionTimer(timerDisplay, statusDisplay) {
+        const updateTimer = () => {
+            if (!this.aiSession) return;
+            
+            const elapsed = Date.now() - this.aiSession.startTime;
+            const remaining = Math.max(0, this.aiSession.minDuration - elapsed);
+            
+            const minutes = Math.floor(remaining / 60000);
+            const seconds = Math.floor((remaining % 60000) / 1000);
+            
+            timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (remaining <= 0 && this.aiSession.messageCount >= 5) {
+                statusDisplay.textContent = 'Session requirements met - you may unlock';
+                statusDisplay.style.color = 'var(--success-color)';
+                document.getElementById('completeSession').disabled = false;
+            }
+        };
+        
+        updateTimer();
+        const timerInterval = setInterval(updateTimer, 1000);
+        
+        // Clear interval when modal is removed
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.removedNodes.forEach((node) => {
+                    if (node.classList && node.classList.contains('ai-chat-modal')) {
+                        clearInterval(timerInterval);
+                        observer.disconnect();
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, { childList: true });
     }
 
     startNormalEmergencyDelay() {
@@ -656,23 +1045,33 @@ class SmokingTimerBox {
     }
 
     startBreathingExercise() {
-        this.addAIEmergencyMessage("Let's do a quick breathing exercise together. This will only take 2 minutes and can really help with cravings. Ready?");
+        this.addAIEmergencyMessage("Let's try a powerful breathing exercise that's scientifically proven to reduce cravings. This will guide you through the 4-7-8 technique - just follow along! 🫁");
         
+        // Add breathing exercise button
         setTimeout(() => {
-            this.addAIEmergencyMessage("Breathe in slowly for 4 counts... 1... 2... 3... 4...");
-            
-            setTimeout(() => {
-                this.addAIEmergencyMessage("Hold for 4 counts... 1... 2... 3... 4...");
-                
-                setTimeout(() => {
-                    this.addAIEmergencyMessage("Breathe out slowly for 6 counts... 1... 2... 3... 4... 5... 6...");
-                    
-                    setTimeout(() => {
-                        this.addAIEmergencyMessage("Great! Let's do that 4 more times. Focus on the breathing - it's more powerful than you might think for managing cravings.");
-                    }, 6000);
-                }, 4000);
-            }, 4000);
-        }, 2000);
+            this.addBreathingExerciseOption();
+        }, 1000);
+    }
+
+    addBreathingExerciseOption() {
+        const chatContainer = document.getElementById('aiEmergencyConversation');
+        const breathingButton = document.createElement('button');
+        breathingButton.textContent = '🫁 Start Guided Breathing Exercise';
+        breathingButton.className = 'btn-primary breathing-btn';
+        breathingButton.style.margin = '10px 0';
+        breathingButton.style.width = '100%';
+        breathingButton.onclick = () => {
+            breathingExercise.setSmokerBox(this);
+            breathingExercise.start();
+            breathingButton.style.display = 'none';
+        };
+        
+        chatContainer.appendChild(breathingButton);
+        
+        // Also add a text message explaining the option
+        setTimeout(() => {
+            this.addAIEmergencyMessage("Click the button above to start the interactive breathing guide, or continue our conversation. The breathing exercise typically takes 2-3 minutes and many people find it incredibly helpful for cravings.");
+        }, 500);
     }
 
     async completeAIEmergencySession() {
@@ -750,3 +1149,186 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+
+// Breathing Exercise Class
+class BreathingExercise {
+    constructor() {
+        this.isActive = false;
+        this.currentPhase = 'inhale';
+        this.cycleCount = 0;
+        this.maxCycles = 8; // 4-7-8 breathing, 8 cycles
+        this.smokerBox = null;
+    }
+
+    setSmokerBox(smokerBox) {
+        this.smokerBox = smokerBox;
+    }
+
+    start() {
+        if (this.isActive) return;
+        
+        this.isActive = true;
+        this.cycleCount = 0;
+        this.showBreathingInterface();
+        this.runCycle();
+    }
+
+    showBreathingInterface() {
+        const breathingHTML = `
+            <div id="breathingExercise" class="breathing-container">
+                <div class="breathing-header">
+                    <h3>🫁 Breathing Exercise</h3>
+                    <p>Let's practice the 4-7-8 breathing technique</p>
+                </div>
+                <div class="breathing-circle" id="breathingCircle"></div>
+                <div class="breathing-text" id="breathingText">Prepare to breathe</div>
+                <div class="breathing-counter" id="breathingCounter">Get ready...</div>
+                <div class="breathing-progress">
+                    <div class="progress-bar" id="breathingProgress"></div>
+                    <div class="progress-text">Cycle <span id="currentCycle">0</span> of ${this.maxCycles}</div>
+                </div>
+                <div class="breathing-controls">
+                    <button onclick="breathingExercise.stop()" class="btn-secondary">Stop Exercise</button>
+                </div>
+            </div>
+        `;
+        
+        const container = document.getElementById('aiEmergencyConversation');
+        const breathingDiv = document.createElement('div');
+        breathingDiv.innerHTML = breathingHTML;
+        container.appendChild(breathingDiv);
+    }
+
+    async runCycle() {
+        while (this.isActive && this.cycleCount < this.maxCycles) {
+            this.updateCycleDisplay();
+            
+            await this.inhale();
+            if (!this.isActive) break;
+            
+            await this.hold();
+            if (!this.isActive) break;
+            
+            await this.exhale();
+            if (!this.isActive) break;
+            
+            this.cycleCount++;
+            this.updateProgress();
+            
+            if (this.cycleCount < this.maxCycles) {
+                await this.pause(1000); // 1 second between cycles
+            }
+        }
+        
+        if (this.isActive) {
+            this.complete();
+        }
+    }
+
+    async inhale() {
+        this.currentPhase = 'inhale';
+        const circle = document.getElementById('breathingCircle');
+        const text = document.getElementById('breathingText');
+        const counter = document.getElementById('breathingCounter');
+        
+        text.textContent = 'Breathe In Slowly';
+        circle.classList.add('inhale');
+        
+        for (let i = 4; i > 0; i--) {
+            if (!this.isActive) return;
+            counter.textContent = i;
+            await this.delay(1000);
+        }
+        
+        circle.classList.remove('inhale');
+    }
+
+    async hold() {
+        this.currentPhase = 'hold';
+        const text = document.getElementById('breathingText');
+        const counter = document.getElementById('breathingCounter');
+        
+        text.textContent = 'Hold Your Breath';
+        
+        for (let i = 7; i > 0; i--) {
+            if (!this.isActive) return;
+            counter.textContent = i;
+            await this.delay(1000);
+        }
+    }
+
+    async exhale() {
+        this.currentPhase = 'exhale';
+        const circle = document.getElementById('breathingCircle');
+        const text = document.getElementById('breathingText');
+        const counter = document.getElementById('breathingCounter');
+        
+        text.textContent = 'Breathe Out Slowly';
+        circle.classList.add('exhale');
+        
+        for (let i = 8; i > 0; i--) {
+            if (!this.isActive) return;
+            counter.textContent = i;
+            await this.delay(1000);
+        }
+        
+        circle.classList.remove('exhale');
+    }
+
+    updateCycleDisplay() {
+        const currentCycleElement = document.getElementById('currentCycle');
+        if (currentCycleElement) {
+            currentCycleElement.textContent = this.cycleCount + 1;
+        }
+    }
+
+    updateProgress() {
+        const progress = document.getElementById('breathingProgress');
+        if (progress) {
+            const percentage = (this.cycleCount / this.maxCycles) * 100;
+            progress.style.width = percentage + '%';
+        }
+    }
+
+    complete() {
+        const text = document.getElementById('breathingText');
+        const counter = document.getElementById('breathingCounter');
+        
+        text.textContent = 'Exercise Complete! Well Done! 🌟';
+        counter.textContent = '✓';
+        
+        setTimeout(() => {
+            this.stop();
+            // Send completion message to AI chat
+            this.sendCompletionMessage();
+        }, 3000);
+    }
+
+    sendCompletionMessage() {
+        if (this.smokerBox) {
+            const message = "I completed the breathing exercise. I feel a bit calmer now and more centered.";
+            // Add to chat and send to AI
+            this.smokerBox.addAIEmergencyMessage(message, 'user');
+            this.smokerBox.sendAIEmergencyMessage(message);
+        }
+    }
+
+    stop() {
+        this.isActive = false;
+        const exerciseDiv = document.getElementById('breathingExercise');
+        if (exerciseDiv) {
+            exerciseDiv.remove();
+        }
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    pause(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+}
+
+// Initialize breathing exercise globally
+const breathingExercise = new BreathingExercise();

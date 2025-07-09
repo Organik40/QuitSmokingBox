@@ -47,40 +47,34 @@
                 </form>
             </div>
 
-            <!-- AI Gatekeeper Configuration Card -->
+            <!-- AI Emergency Gatekeeper Configuration Card -->
             <div class="card config-card">
                 <h2>🤖 AI Emergency Gatekeeper</h2>
                 <form id="aiForm">
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="enableAI" name="enableAI">
+                            <input type="checkbox" id="aiEnabled" name="aiEnabled">
                             <span class="checkmark"></span>
-                            Enable AI Gatekeeper for Emergency Unlocks
+                            Enable AI Emergency Gatekeeper
                         </label>
-                        <small class="help-text">AI will try to dissuade emergency unlocks and enforce 10-minute delay</small>
+                        <small>Requires 10-minute conversation before emergency unlock</small>
                     </div>
 
                     <div class="ai-config" id="aiConfig" style="display: none;">
                         <div class="form-group">
                             <label for="aiProvider">AI Provider:</label>
                             <select id="aiProvider" name="aiProvider" class="dropdown">
+                                <option value="simple">Simple (Rule-based)</option>
                                 <option value="openai">OpenAI GPT</option>
-                                <option value="local">Local AI (Offline)</option>
-                                <option value="simple">Simple Rule-based</option>
+                                <option value="local">Local AI (Ollama)</option>
                             </select>
                         </div>
 
-                        <div class="form-group" id="apiKeyGroup">
-                            <label for="aiApiKey">API Key:</label>
+                        <div class="form-group" id="apiKeyGroup" style="display: none;">
+                            <label for="aiApiKey">OpenAI API Key:</label>
                             <input type="password" id="aiApiKey" name="aiApiKey" 
-                                   placeholder="Enter your OpenAI API key" class="input-field">
-                            <small class="help-text">Required for OpenAI. Keep secure!</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="delayMinutes">Minimum Delay (minutes):</label>
-                            <input type="number" id="delayMinutes" name="delayMinutes" 
-                                   min="5" max="60" value="10" class="input-field">
+                                   placeholder="sk-..." class="input-field">
+                            <small>Your API key is stored locally and only used for AI requests</small>
                         </div>
 
                         <div class="form-group">
@@ -88,69 +82,88 @@
                             <select id="aiPersonality" name="aiPersonality" class="dropdown">
                                 <option value="supportive">Supportive Coach</option>
                                 <option value="strict">Strict Counselor</option>
-                                <option value="friend">Understanding Friend</option>
+                                <option value="understanding">Understanding Friend</option>
                                 <option value="professional">Professional Therapist</option>
                             </select>
                         </div>
 
                         <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="requireQuestions" name="requireQuestions" checked>
-                                <span class="checkmark"></span>
-                                Require reflection questions
-                            </label>
+                            <label for="aiDelayMinutes">Minimum Session Time (minutes):</label>
+                            <input type="number" id="aiDelayMinutes" name="aiDelayMinutes" 
+                                   min="5" max="30" value="10" class="input-field">
                         </div>
 
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="breathingExercise" name="breathingExercise" checked>
-                                <span class="checkmark"></span>
-                                Force breathing exercises
-                            </label>
+                        <div class="ai-test-section">
+                            <h3>🧪 Test AI System</h3>
+                            <p>Try the AI without triggering an emergency unlock:</p>
+                            <button type="button" id="testAI" class="btn-secondary">Test AI Conversation</button>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-primary">🤖 Save AI Settings</button>
+                    <button type="submit" class="btn-primary">💾 Save AI Settings</button>
                 </form>
             </div>
 
-            <!-- Network Security Card -->
+            <!-- Network Security Configuration Card -->
             <div class="card config-card">
-                <h2>🔒 Security Settings</h2>
-                <form id="securityForm">
+                <h2>🔒 Network Security</h2>
+                <form id="networkForm">
                     <div class="form-group">
-                        <label>Allowed Networks for Emergency:</label>
-                        <div class="network-list" id="allowedNetworks">
-                            <div class="network-item">
-                                <input type="text" placeholder="Home WiFi" class="input-field network-input">
-                                <button type="button" class="btn-small remove-network">❌</button>
-                            </div>
-                        </div>
-                        <button type="button" id="addNetwork" class="btn-secondary">➕ Add Network</button>
-                        <small class="help-text">Emergency unlocks only allowed on these networks</small>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="blockOnPublic" name="blockOnPublic">
+                            <span class="checkmark"></span>
+                            Block emergency unlocks on public WiFi
+                        </label>
+                        <small>Automatically block emergency access on networks with "Free", "Public", "Guest" in the name</small>
                     </div>
 
                     <div class="form-group">
-                        <label>Blocked Networks:</label>
-                        <div class="network-list" id="blockedNetworks">
-                            <div class="network-item">
-                                <input type="text" placeholder="Public WiFi" class="input-field network-input">
-                                <button type="button" class="btn-small remove-network">❌</button>
-                            </div>
-                        </div>
-                        <button type="button" id="addBlockedNetwork" class="btn-secondary">➕ Add Blocked Network</button>
-                        <small class="help-text">Emergency unlocks blocked on these networks</small>
+                        <label for="allowedNetworks">Allowed Networks (JSON array):</label>
+                        <textarea id="allowedNetworks" name="allowedNetworks" 
+                                  placeholder="[&quot;Home WiFi&quot;, &quot;Safe Network&quot;]" 
+                                  class="input-field textarea" rows="3"></textarea>
+                        <small>Networks where emergency unlocks are always allowed</small>
                     </div>
 
-                    <button type="submit" class="btn-primary">🔒 Save Security Settings</button>
+                    <div class="form-group">
+                        <label for="blockedNetworks">Blocked Networks (JSON array):</label>
+                        <textarea id="blockedNetworks" name="blockedNetworks" 
+                                  placeholder="[&quot;Risky WiFi&quot;, &quot;Temptation Zone&quot;]" 
+                                  class="input-field textarea" rows="3"></textarea>
+                        <small>Networks where emergency unlocks are always blocked</small>
+                    </div>
+
+                    <button type="submit" class="btn-primary">🛡️ Save Security Settings</button>
                 </form>
             </div>
 
-            <!-- Test AI Card -->
-            <div class="card actions-card">
-                <h2>🧪 Test AI Gatekeeper</h2>
-                <p>Test the AI emergency system without actually unlocking the box.</p>
-                <button id="testAI" class="btn-action test-btn">🤖 Test AI Session</button>
+            <!-- Progress Configuration Card -->
+            <div class="card config-card">
+                <h2>📊 Progress Tracking</h2>
+                <form id="progressForm">
+                    <div class="form-group">
+                        <label for="cigaretteCost">Cost per cigarette ($):</label>
+                        <input type="number" id="cigaretteCost" name="cigaretteCost" 
+                               min="0" step="0.01" value="0.50" class="input-field">
+                        <small>Used to calculate money saved</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="smokingGoal">Smoking Goal:</label>
+                        <select id="smokingGoal" name="smokingGoal" class="dropdown">
+                            <option value="reduce">Reduce Smoking</option>
+                            <option value="quit">Quit Completely</option>
+                            <option value="control">Control Habits</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="startDate">Quit/Reduction Start Date:</label>
+                        <input type="date" id="startDate" name="startDate" class="input-field">
+                    </div>
+
+                    <button type="submit" class="btn-primary">📈 Save Progress Settings</button>
+                </form>
             </div>
         </main>
 

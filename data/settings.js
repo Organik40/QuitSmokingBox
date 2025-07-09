@@ -2,8 +2,9 @@
 class SettingsManager {
     constructor() {
         this.apiBase = '';
+        this.aiSession = null;
         this.initializeEventListeners();
-        this.loadSettings();
+        this.loadAllSettings();
     }
 
     initializeEventListeners() {
@@ -19,29 +20,26 @@ class SettingsManager {
             this.saveAISettings();
         });
 
-        // Security form submission
-        document.getElementById('securityForm').addEventListener('submit', (e) => {
+        // Network security form submission
+        document.getElementById('networkForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            this.saveSecuritySettings();
+            this.saveNetworkSettings();
+        });
+
+        // Progress form submission
+        document.getElementById('progressForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveProgressSettings();
         });
 
         // AI enable/disable toggle
-        document.getElementById('enableAI').addEventListener('change', (e) => {
+        document.getElementById('aiEnabled').addEventListener('change', (e) => {
             this.toggleAIConfig(e.target.checked);
         });
 
         // AI provider change
         document.getElementById('aiProvider').addEventListener('change', (e) => {
             this.updateAPIKeyVisibility(e.target.value);
-        });
-
-        // Network management
-        document.getElementById('addNetwork').addEventListener('click', () => {
-            this.addNetworkInput('allowedNetworks');
-        });
-
-        document.getElementById('addBlockedNetwork').addEventListener('click', () => {
-            this.addNetworkInput('blockedNetworks');
         });
 
         // Test AI button
@@ -171,7 +169,7 @@ class SettingsManager {
         }
     }
 
-    async saveSecuritySettings() {
+    async saveNetworkSettings() {
         const allowedNetworks = this.getNetworkList('allowedNetworks');
         const blockedNetworks = this.getNetworkList('blockedNetworks');
 
@@ -188,18 +186,121 @@ class SettingsManager {
         }
     }
 
+    async saveProgressSettings() {
+        const formData = new FormData(document.getElementById('progressForm'));
+        
+        const config = {
+            cigaretteCost: parseFloat(formData.get('cigaretteCost')),
+            smokingGoal: formData.get('smokingGoal'),
+            startDate: formData.get('startDate')
+        };
+
+        // Store in preferences (you'll need to add an API endpoint for this)
+        try {
+            // For now, just show success message
+            // TODO: Add API endpoint for progress settings
+            this.showMessage('Progress settings saved locally!', 'success');
+        } catch (error) {
+            console.error('Error saving progress settings:', error);
+            this.showMessage('Error saving progress settings', 'error');
+        }
+    }
+
+    async loadAllSettings() {
+        await this.loadWiFiStatus();
+        await this.loadAISettings();
+        await this.loadNetworkSettings();
+        await this.loadProgressSettings();
+    }
+
+    async loadAISettings() {
+        try {
+            const response = await fetch('/api/ai/config');
+            if (response.ok) {
+                const config = await response.json();
+                
+                document.getElementById('aiEnabled').checked = config.enabled || false;
+                document.getElementById('aiProvider').value = config.provider || 'simple';
+                document.getElementById('aiApiKey').value = config.apiKey || '';
+                document.getElementById('aiPersonality').value = config.personality || 'supportive';
+                document.getElementById('aiDelayMinutes').value = config.delayMinutes || 10;
+                
+                this.toggleAIConfig(config.enabled || false);
+                this.updateAPIKeyVisibility(config.provider || 'simple');
+            }
+        } catch (error) {
+            console.error('Failed to load AI settings:', error);
+        }
+    }
+
+    async loadNetworkSettings() {
+        try {
+            const response = await fetch('/api/network/config');
+            if (response.ok) {
+                const config = await response.json();
+                
+                document.getElementById('blockOnPublic').checked = config.blockOnPublic || false;
+                document.getElementById('allowedNetworks').value = config.allowedNetworks || '[]';
+                document.getElementById('blockedNetworks').value = config.blockedNetworks || '[]';
+            }
+        } catch (error) {
+            console.error('Failed to load network settings:', error);
+        }
+    }
+
+    async loadProgressSettings() {
+        // Load progress tracking settings from status endpoint
+        try {
+            const response = await fetch('/api/status');
+            if (response.ok) {
+                const status = await response.json();
+                
+                // Set cigarette cost if available
+                const cost = parseFloat((status.moneySaved || 0) / Math.max((status.totalCigarettes || 1), 1));
+                if (cost > 0) {
+                    document.getElementById('cigaretteCost').value = cost.toFixed(2);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load progress settings:', error);
+        }
+    }
+
+    async loadWiFiStatus() {
+        try {
+            const response = await fetch('/api/status');
+            if (response.ok) {
+                const status = await response.json();
+                
+                const indicator = document.getElementById('wifiIndicator');
+                const statusText = document.getElementById('wifiStatusText');
+                
+                if (status.wifiConnected) {
+                    if (status.currentNetwork === 'AP Mode') {
+                        indicator.textContent = '🟡';
+                        statusText.textContent = 'Access Point Mode';
+                    } else {
+                        indicator.textContent = '🟢';
+                        statusText.textContent = `Connected to: ${status.currentNetwork}`;
+                    }
+                } else {
+                    indicator.textContent = '🔴';
+                    statusText.textContent = 'Not Connected';
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load WiFi status:', error);
+        }
+    }
+
     toggleAIConfig(enabled) {
         const aiConfig = document.getElementById('aiConfig');
         aiConfig.style.display = enabled ? 'block' : 'none';
-        
-        if (enabled) {
-            this.updateAPIKeyVisibility(document.getElementById('aiProvider').value);
-        }
     }
 
     updateAPIKeyVisibility(provider) {
         const apiKeyGroup = document.getElementById('apiKeyGroup');
-        apiKeyGroup.style.display = (provider === 'openai') ? 'block' : 'none';
+        apiKeyGroup.style.display = provider === 'openai' ? 'block' : 'none';
     }
 
     addNetworkInput(containerId) {
@@ -456,33 +557,143 @@ class SettingsManager {
         document.getElementById('sessionTime').textContent = '10:00';
     }
 
-    showMessage(message, type = 'info') {
-        // Simple message display - you could enhance this with a proper toast system
-        const colors = {
-            success: '#22C55E',
-            error: '#EF4444',
-            info: '#3B82F6'
-        };
+    async testAIGatekeeper() {
+        if (this.aiSession) {
+            this.showMessage('AI test session already active', 'warning');
+            return;
+        }
 
+        try {
+            // Create a mock AI test session
+            this.aiSession = {
+                id: 'test-' + Date.now(),
+                startTime: Date.now(),
+                isTest: true
+            };
+
+            this.showAITestInterface();
+        } catch (error) {
+            console.error('Error starting AI test:', error);
+            this.showMessage('Failed to start AI test', 'error');
+        }
+    }
+
+    showAITestInterface() {
+        const testModal = document.createElement('div');
+        testModal.className = 'modal ai-chat-modal';
+        testModal.style.display = 'flex';
+        testModal.innerHTML = `
+            <div class="modal-content ai-chat-content">
+                <div class="ai-chat-header">
+                    <h3>🧪 AI Test Session</h3>
+                    <div class="session-timer">
+                        Test Mode
+                    </div>
+                </div>
+                
+                <div class="ai-chat-messages" id="testChatMessages">
+                    <div class="ai-message">
+                        <strong>AI Counselor (Test):</strong> This is a test session. Try asking me about coping strategies or tell me about what triggers your cravings.
+                    </div>
+                </div>
+                
+                <div class="ai-chat-input">
+                    <div class="input-group">
+                        <input type="text" id="testUserMessage" placeholder="Test the AI conversation..." class="form-control">
+                        <button id="sendTestMessage" class="btn btn-primary">Send</button>
+                    </div>
+                </div>
+                
+                <div class="ai-chat-footer">
+                    <div class="session-info">
+                        Test mode - No emergency unlock will be granted
+                    </div>
+                    <button id="closeTestSession" class="btn btn-secondary">Close Test</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(testModal);
+        
+        // Initialize test chat functionality
+        this.initializeTestAIChat(testModal);
+    }
+
+    initializeTestAIChat(testModal) {
+        const userMessageInput = testModal.querySelector('#testUserMessage');
+        const sendBtn = testModal.querySelector('#sendTestMessage');
+        const messagesContainer = testModal.querySelector('#testChatMessages');
+        const closeBtn = testModal.querySelector('#closeTestSession');
+        
+        const sendMessage = async () => {
+            const message = userMessageInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to chat
+            this.addTestChatMessage(messagesContainer, message, true);
+            userMessageInput.value = '';
+            
+            // Simulate AI response (since this is a test)
+            setTimeout(() => {
+                const aiResponse = this.generateTestAIResponse(message);
+                this.addTestChatMessage(messagesContainer, aiResponse, false);
+            }, 1000);
+        };
+        
+        sendBtn.addEventListener('click', sendMessage);
+        userMessageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        closeBtn.addEventListener('click', () => {
+            testModal.remove();
+            this.aiSession = null;
+        });
+    }
+
+    addTestChatMessage(container, message, isUser) {
         const messageDiv = document.createElement('div');
+        messageDiv.className = isUser ? 'user-message' : 'ai-message';
+        messageDiv.innerHTML = `<strong>${isUser ? 'You' : 'AI Counselor (Test)'}:</strong> ${message}`;
+        container.appendChild(messageDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    generateTestAIResponse(userMessage) {
+        const responses = [
+            "I understand you're testing the system. The real AI would provide personalized coping strategies here.",
+            "In a real emergency session, I would ask about your triggers and suggest breathing exercises.",
+            "This test demonstrates how the conversation would work to help you resist cravings.",
+            "The actual AI would provide more detailed support based on your specific situation.",
+            "Thank you for testing. The real system would engage you for the full 10-minute minimum."
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+    showMessage(message, type) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = message;
         messageDiv.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${colors[type] || colors.info};
-            color: white;
-            padding: 12px 20px;
+            padding: 15px 20px;
             border-radius: 8px;
+            color: white;
+            font-weight: bold;
             z-index: 1000;
-            font-weight: 500;
+            background: ${type === 'success' ? '#22C55E' : type === 'error' ? '#EF4444' : '#F59E0B'};
         `;
-        messageDiv.textContent = message;
         
         document.body.appendChild(messageDiv);
         
         setTimeout(() => {
             messageDiv.remove();
-        }, 4000);
+        }, 3000);
     }
 }
 

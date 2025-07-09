@@ -80,18 +80,16 @@ void Timer::update() {
         Serial.println("⏰ Timer expired - box should unlock");
     }
     
-    // Check scheduled unlocks (check every minute)
-    if (millis() - lastScheduledCheck >= 60000) {
-        lastScheduledCheck = millis();
-        
-        TimerMode currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
-        
-        if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
+    // Check scheduled unlocks
+    if (schedule.isActive) {
+        unsigned long currentTime = millis();
+        // Only check once per minute to avoid excessive processing
+        if (currentTime - lastScheduledCheck >= 60000) {
+            lastScheduledCheck = currentTime;
+            
             if (shouldUnlockNow()) {
                 triggered = true;
-                Serial.println("📅 Scheduled unlock time reached");
-                // Mark that we've unlocked today
-                preferences.putULong64(KEY_LAST_SCHEDULED_UNLOCK, getCurrentTimeSeconds());
+                Serial.println("📅 Scheduled unlock triggered");
             }
         }
     }
@@ -148,19 +146,26 @@ bool Timer::shouldUnlockNow() {
         if (currentTime - lastScheduledUnlock < 86400) { // Less than 24 hours
             return false;
         }
+        
+        // Check if it's the right time
+        if (timeinfo.tm_hour == schedule.hour && timeinfo.tm_min == schedule.minute) {
+            preferences.putULong64(KEY_LAST_SCHEDULED_UNLOCK, currentTime);
+            return true;
+        }
     } else if (currentMode == WEEKLY_SCHEDULE) {
         // Check if it's the right day and we haven't unlocked this week
-        if (timeinfo.tm_wday != schedule.weekDay) {
-            return false;
+        if (timeinfo.tm_wday == schedule.weekDay) {
+            // Check if we already unlocked this week
+            if (currentTime - lastScheduledUnlock < 604800) { // Less than 7 days
+                return false;
+            }
+            
+            // Check if it's the right time
+            if (timeinfo.tm_hour == schedule.hour && timeinfo.tm_min == schedule.minute) {
+                preferences.putULong64(KEY_LAST_SCHEDULED_UNLOCK, currentTime);
+                return true;
+            }
         }
-        if (currentTime - lastScheduledUnlock < 604800) { // Less than 7 days
-            return false;
-        }
-    }
-    
-    // Check if it's the right time
-    if (timeinfo.tm_hour == schedule.hour && timeinfo.tm_min == schedule.minute) {
-        return true;
     }
     
     return false;
