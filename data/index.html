@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quit Smoking Timer Box - Configuration</title>
+    <meta name="i18n-title" content="app_title">
     <meta name="description" content="An open-source timer box to help control smoking habits and quit entirely">
     <meta name="theme-color" content="#6B73FF">
     
@@ -16,16 +17,20 @@
     
     <!-- Stylesheet -->
     <link rel="stylesheet" href="/style.css">
+    
+    <!-- Multi-language support -->
+    <script src="/i18n.js"></script>
 </head>
 <body>
     <div class="container">
         <header class="header">
             <div class="logo">
                 <div class="logo-icon">🚭</div>
-                <h1>Quit Smoking Timer Box</h1>
+                <h1 data-i18n="app_title">Quit Smoking Timer Box</h1>
             </div>
             <div class="header-right">
-                <a href="/settings.html" class="btn-secondary">⚙️ Settings</a>
+                <div id="languageSelectorContainer"></div>
+                <a href="/settings.html" class="btn-secondary" data-i18n="settings">⚙️ Settings</a>
                 <div class="status-badge" id="statusBadge">
                     <span class="status-text" id="statusText">Initializing...</span>
                 </div>
@@ -35,18 +40,18 @@
         <main class="main-content">
             <!-- Status Card -->
             <div class="card status-card">
-                <h2>📊 Current Status 
+                <h2 data-i18n="current_status">📊 Current Status 
                     <span class="realtime-indicator" id="realtimeIndicator">
                         Real-time updates
                     </span>
                 </h2>
                 <div class="status-grid">
                     <div class="status-item">
-                        <span class="label">Box State:</span>
+                        <span class="label" data-i18n="box_state">Box State:</span>
                         <span class="value" id="boxState">Loading...</span>
                     </div>
                     <div class="status-item">
-                        <span class="label">Time Until Unlock:</span>
+                        <span class="label" data-i18n="time_until_unlock">Time Until Unlock:</span>
                         <span class="value countdown" id="timeRemaining">--:--:--</span>
                     </div>
                     <div class="status-item">
@@ -77,6 +82,53 @@
                         <span class="stat-value-large" id="totalDays">0</span>
                         <span class="stat-label-enhanced">Total Days</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- First-Time Setup Card -->
+            <div class="card setup-card" id="setupCard" style="display: none;">
+                <h2>🚀 Welcome! Let's Set Up Your Quit Smoking Timer Box</h2>
+                <p>Your box needs initial configuration to work properly. Complete these steps to get started:</p>
+                
+                <!-- Setup Checklist -->
+                <div class="setup-checklist">
+                    <div class="checklist-item incomplete" id="timerCheck">
+                        <span class="checklist-icon">⭕</span>
+                        <span class="checklist-label">Timer configuration</span>
+                        <span class="checklist-status">Pending</span>
+                    </div>
+                    <div class="checklist-item incomplete" id="servoCheck">
+                        <span class="checklist-icon">⭕</span>
+                        <span class="checklist-label">Servo calibration</span>
+                        <span class="checklist-status">Pending</span>
+                    </div>
+                    <div class="checklist-item incomplete" id="wifiCheck">
+                        <span class="checklist-icon">⭕</span>
+                        <span class="checklist-label">WiFi connection</span>
+                        <span class="checklist-status">Optional</span>
+                    </div>
+                    <div class="checklist-item incomplete" id="costCheck">
+                        <span class="checklist-icon">⭕</span>
+                        <span class="checklist-label">Cost settings</span>
+                        <span class="checklist-status">Optional</span>
+                    </div>
+                </div>
+                
+                <!-- Setup Action Buttons -->
+                <div class="setup-actions">
+                    <a href="/dev" class="btn btn-primary setup-btn" data-i18n="calibrate_servo">
+                        🔧 Calibrate Servo
+                    </a>
+                    <a href="/settings.html" class="btn btn-primary setup-btn" data-i18n="configure_settings">
+                        ⚙️ Configure Settings
+                    </a>
+                    <button class="btn btn-secondary" onclick="window.location.reload()" data-i18n="refresh_status">
+                        🔄 Refresh Status
+                    </button>
+                </div>
+                
+                <div class="setup-note">
+                    <p><strong>Important:</strong> Start with servo calibration to ensure the box locks/unlocks properly, then configure your preferred settings.</p>
                 </div>
             </div>
 
@@ -226,5 +278,16 @@
     </div>
 
     <script src="/script.js"></script>
+    <script>
+        // Initialize language selector when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof i18n !== 'undefined') {
+                const container = document.getElementById('languageSelectorContainer');
+                if (container) {
+                    container.innerHTML = i18n.createLanguageSelector();
+                }
+            }
+        });
+    </script>
 </body>
 </html>

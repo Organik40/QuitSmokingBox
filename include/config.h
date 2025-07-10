@@ -18,8 +18,8 @@
 #define SERVO_UNLOCKED_POSITION CONFIG_SERVO_UNLOCKED_POS
 
 // WiFi Settings
-#define AP_SSID "QuitSmokingBox"
-#define AP_PASSWORD "quit2024"
+#define AP_SSID "QuitBox"
+#define AP_PASSWORD "Quitin321"
 #define WIFI_TIMEOUT 30000  // 30 seconds
 
 // Timer Settings
@@ -60,6 +60,40 @@
 #define KEY_WEEKLY_DAY "weekly_day"
 #define KEY_CUSTOM_INTERVALS "custom_intervals"
 #define KEY_LAST_SCHEDULED_UNLOCK "last_scheduled"
+
+// Language and Cost Configuration Keys
+#define KEY_CURRENT_LANGUAGE "current_language"
+#define KEY_SUPPORTED_LANGUAGES "supported_languages"
+#define KEY_PRODUCT_NAME "product_name"
+#define KEY_CURRENCY "currency"
+#define KEY_USE_PACK_PRICE "use_pack_price"
+#define KEY_CIGARETTE_COST "cigarette_cost"
+#define KEY_PACK_COST "pack_cost"
+#define KEY_CIGARETTES_PER_PACK "cigarettes_per_pack"
+
+// Servo Calibration Keys
+#define KEY_SERVO_LOCKED_POS "servo_locked_pos"
+#define KEY_SERVO_UNLOCKED_POS "servo_unlocked_pos"
+
+// Network Security Keys
+#define KEY_BLOCK_ON_PUBLIC "block_on_public"
+#define KEY_ALLOWED_NETWORKS "allowed_networks"
+#define KEY_BLOCKED_NETWORKS "blocked_networks"
+
+// AI Configuration Keys
+#define KEY_AI_ENABLED "ai_enabled"
+#define KEY_AI_PROVIDER "ai_provider"
+#define KEY_AI_PERSONALITY "ai_personality"
+#define KEY_AI_DELAY_MINUTES "ai_delay_minutes"
+#define KEY_AI_API_KEY "ai_api_key"
+
+// Progress Tracking Keys
+#define KEY_SMOKING_GOAL "smoking_goal"
+#define KEY_START_DATE "start_date"
+#define KEY_TARGET_DATE "target_date"
+#define KEY_MONEY_SAVED "money_saved"
+#define KEY_LONGEST_STREAK "longest_streak"
+#define KEY_TOTAL_DAYS "total_days"
 
 // Timer Modes
 enum TimerMode {

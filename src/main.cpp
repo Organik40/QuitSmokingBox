@@ -60,6 +60,24 @@ unsigned long lastDisplayUpdate = 0;
 unsigned long lastStatusSave = 0;
 bool wifiConnected = false;
 
+// Multi-language support
+struct LanguageConfig {
+  String currentLanguage = "en";
+  String supportedLanguages = "en,pt,es,fr,de";
+};
+
+struct CostConfig {
+  String productName = "Cigarettes";
+  String currency = "EUR";
+  bool usePackPrice = false;
+  float cigaretteCost = 0.50;
+  float packCost = 10.00;
+  int cigarettesPerPack = 20;
+};
+
+LanguageConfig languageConfig;
+CostConfig costConfig;
+
 // Function declarations
 void setupWiFi();
 void setupTimeSync();
@@ -704,8 +722,8 @@ void setupWebServer() {
         request->send(200, "application/json", responseStr);
     });
 
-    // Network security configuration
-    server.on("/api/network/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+    // Security configuration (alias for network config to match frontend expectations)
+    server.on("/api/security/config", HTTP_GET, [](AsyncWebServerRequest *request) {
         DynamicJsonDocument doc(1024);
         
         doc["allowedNetworks"] = preferences.getString("allowed_networks", "[]");
@@ -717,8 +735,8 @@ void setupWebServer() {
         request->send(200, "application/json", response);
     });
 
-    server.on("/api/network/config", HTTP_POST, [](AsyncWebServerRequest *request) {
-        // Handle network security configuration
+    server.on("/api/security/config", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // Handle security configuration
     }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
         DynamicJsonDocument doc(1024);
         deserializeJson(doc, (char*)data);
@@ -729,25 +747,372 @@ void setupWebServer() {
         
         DynamicJsonDocument response(256);
         response["success"] = true;
-        response["message"] = "Network configuration saved";
+        response["message"] = "Security configuration saved";
         
         String responseStr;
         serializeJson(response, responseStr);
         request->send(200, "application/json", responseStr);
     });
     
-    // Setup WebSocket
-    ws.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-        if (type == WS_EVT_CONNECT) {
-            Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-            // Send initial status
-            client->text(getStatusJSON());
-        } else if (type == WS_EVT_DISCONNECT) {
-            Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    // Language and cost configuration endpoints
+    server.on("/api/language", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(512);
+        doc["currentLanguage"] = languageConfig.currentLanguage;
+        doc["supportedLanguages"] = languageConfig.supportedLanguages;
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    server.on("/api/language", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("language", true)) {
+            String language = request->getParam("language", true)->value();
+            
+            // Validate language is supported
+            if (languageConfig.supportedLanguages.indexOf(language) >= 0) {
+                languageConfig.currentLanguage = language;
+                preferences.putString("current_language", language);
+                
+                DynamicJsonDocument doc(256);
+                doc["success"] = true;
+                doc["language"] = language;
+                
+                String response;
+                serializeJson(doc, response);
+                request->send(200, "application/json", response);
+            } else {
+                request->send(400, "application/json", "{\"error\":\"Unsupported language\"}");
+            }
+        } else {
+            request->send(400, "application/json", "{\"error\":\"Language parameter required\"}");
         }
     });
     
-    server.addHandler(&ws);
+    server.on("/api/cost-config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(512);
+        doc["productName"] = costConfig.productName;
+        doc["currency"] = costConfig.currency;
+        doc["usePackPrice"] = costConfig.usePackPrice;
+        doc["cigaretteCost"] = costConfig.cigaretteCost;
+        doc["packCost"] = costConfig.packCost;
+        doc["cigarettesPerPack"] = costConfig.cigarettesPerPack;
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    server.on("/api/cost-config", HTTP_POST, [](AsyncWebServerRequest *request) {
+        bool updated = false;
+        
+        if (request->hasParam("productName", true)) {
+            costConfig.productName = request->getParam("productName", true)->value();
+            preferences.putString("product_name", costConfig.productName);
+            updated = true;
+        }
+        
+        if (request->hasParam("currency", true)) {
+            costConfig.currency = request->getParam("currency", true)->value();
+            preferences.putString("currency", costConfig.currency);
+            updated = true;
+        }
+        
+        if (request->hasParam("usePackPrice", true)) {
+            costConfig.usePackPrice = request->getParam("usePackPrice", true)->value() == "true";
+            preferences.putBool("use_pack_price", costConfig.usePackPrice);
+            updated = true;
+        }
+        
+        if (request->hasParam("cigaretteCost", true)) {
+            costConfig.cigaretteCost = request->getParam("cigaretteCost", true)->value().toFloat();
+            preferences.putFloat("cigarette_cost", costConfig.cigaretteCost);
+            updated = true;
+        }
+        
+        if (request->hasParam("packCost", true)) {
+            costConfig.packCost = request->getParam("packCost", true)->value().toFloat();
+            preferences.putFloat("pack_cost", costConfig.packCost);
+            updated = true;
+        }
+        
+        if (request->hasParam("cigarettesPerPack", true)) {
+            costConfig.cigarettesPerPack = request->getParam("cigarettesPerPack", true)->value().toInt();
+            preferences.putInt("cigarettes_per_pack", costConfig.cigarettesPerPack);
+            updated = true;
+        }
+        
+        DynamicJsonDocument doc(256);
+        doc["success"] = updated;
+        if (!updated) {
+            doc["error"] = "No valid parameters provided";
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    // Developer tools endpoints
+    server.on("/api/servo/calibration", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(256);
+        doc["locked"] = SERVO_LOCKED_POSITION;
+        doc["unlocked"] = SERVO_UNLOCKED_POSITION;
+        doc["current"] = servoControl.getCurrentPosition();
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    server.on("/api/servo/calibration", HTTP_POST, [](AsyncWebServerRequest *request) {
+        bool updated = false;
+        int lockedPos = SERVO_LOCKED_POSITION;
+        int unlockedPos = SERVO_UNLOCKED_POSITION;
+        
+        if (request->hasParam("locked", true)) {
+            lockedPos = request->getParam("locked", true)->value().toInt();
+            if (lockedPos >= 0 && lockedPos <= 180) {
+                preferences.putInt("servo_locked_pos", lockedPos);
+                updated = true;
+            }
+        }
+        
+        if (request->hasParam("unlocked", true)) {
+            unlockedPos = request->getParam("unlocked", true)->value().toInt();
+            if (unlockedPos >= 0 && unlockedPos <= 180) {
+                preferences.putInt("servo_unlocked_pos", unlockedPos);
+                updated = true;
+            }
+        }
+        
+        DynamicJsonDocument doc(256);
+        doc["success"] = updated;
+        if (updated) {
+            doc["locked"] = lockedPos;
+            doc["unlocked"] = unlockedPos;
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    server.on("/api/servo/command", HTTP_POST, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(256);
+        
+        if (request->hasParam("command", true)) {
+            String command = request->getParam("command", true)->value();
+            
+            if (command == "lock") {
+                servoControl.lock();
+                doc["success"] = true;
+                doc["command"] = "lock";
+                doc["position"] = SERVO_LOCKED_POSITION;
+            } else if (command == "unlock") {
+                servoControl.unlock();
+                doc["success"] = true;
+                doc["command"] = "unlock";
+                doc["position"] = SERVO_UNLOCKED_POSITION;
+            } else if (command == "moveTo" && request->hasParam("value", true)) {
+                int position = request->getParam("value", true)->value().toInt();
+                if (position >= 0 && position <= 180) {
+                    servoControl.moveTo(position);
+                    doc["success"] = true;
+                    doc["command"] = "moveTo";
+                    doc["position"] = position;
+                } else {
+                    doc["success"] = false;
+                    doc["error"] = "Invalid position (0-180)";
+                }
+            } else if (command == "sweep") {
+                // Perform servo sweep test
+                for (int i = 0; i <= 180; i += 30) {
+                    servoControl.moveTo(i);
+                    delay(500);
+                }
+                servoControl.moveTo(90); // Return to center
+                doc["success"] = true;
+                doc["command"] = "sweep";
+                doc["position"] = 90;
+            } else if (command == "setLocked" && request->hasParam("value", true)) {
+                int position = request->getParam("value", true)->value().toInt();
+                if (position >= 0 && position <= 180) {
+                    preferences.putInt("servo_locked_pos", position);
+                    doc["success"] = true;
+                    doc["command"] = "setLocked";
+                    doc["position"] = position;
+                } else {
+                    doc["success"] = false;
+                    doc["error"] = "Invalid position (0-180)";
+                }
+            } else if (command == "setUnlocked" && request->hasParam("value", true)) {
+                int position = request->getParam("value", true)->value().toInt();
+                if (position >= 0 && position <= 180) {
+                    preferences.putInt("servo_unlocked_pos", position);
+                    doc["success"] = true;
+                    doc["command"] = "setUnlocked";
+                    doc["position"] = position;
+                } else {
+                    doc["success"] = false;
+                    doc["error"] = "Invalid position (0-180)";
+                }
+            } else {
+                doc["success"] = false;
+                doc["error"] = "Unknown command";
+            }
+        } else {
+            doc["success"] = false;
+            doc["error"] = "Command parameter required";
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    server.on("/api/dev/system-info", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(512);
+        doc["firmware"] = "v1.0.0";
+        doc["hardware"] = "ESP32-S3";
+        doc["flashSize"] = ESP.getFlashChipSize();
+        doc["freeMemory"] = ESP.getFreeHeap();
+        doc["cpuFreq"] = ESP.getCpuFreqMHz();
+        doc["chipId"] = (uint32_t)ESP.getEfuseMac();
+        doc["buildDate"] = __DATE__ " " __TIME__;
+        doc["uptime"] = millis();
+        doc["wifiSignal"] = WiFi.RSSI();
+        
+        if (WiFi.status() == WL_CONNECTED) {
+            JsonObject network = doc.createNestedObject("networkInfo");
+            network["ip"] = WiFi.localIP().toString();
+            network["mac"] = WiFi.macAddress();
+            network["gateway"] = WiFi.gatewayIP().toString();
+            network["dns"] = WiFi.dnsIP().toString();
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    // Serve dev.html only if specifically requested
+    server.on("/dev", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(SPIFFS, "/dev.html", "text/html");
+    });
+    
+    // WiFi Management API endpoints
+    server.on("/api/wifi/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(512);
+        doc["connected"] = wifiConnected;
+        doc["ip"] = wifiConnected ? WiFi.localIP().toString() : "";
+        doc["ssid"] = wifiConnected ? WiFi.SSID() : "";
+        doc["rssi"] = wifiConnected ? WiFi.RSSI() : 0;
+        doc["apMode"] = WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA;
+        doc["apSSID"] = AP_SSID;
+        doc["apIP"] = WiFi.softAPIP().toString();
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    server.on("/api/wifi/connect", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        // Handle JSON body data
+        String body = String((char*)data);
+        DynamicJsonDocument doc(1024);
+        DeserializationError error = deserializeJson(doc, body);
+        
+        if (error) {
+            // Fallback to form parameters for compatibility
+            if (!request->hasParam("ssid", true)) {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"SSID required\"}");
+                return;
+            }
+            
+            String ssid = request->getParam("ssid", true)->value();
+            String password = request->hasParam("password", true) ? request->getParam("password", true)->value() : "";
+            
+            if (ssid.length() > 0) {
+                // Store credentials
+                preferences.putString("wifi_ssid", ssid);
+                preferences.putString("wifi_password", password);
+                
+                // Attempt connection
+                WiFi.mode(WIFI_STA);
+                WiFi.begin(ssid.c_str(), password.c_str());
+                
+                Serial.printf("🔄 Attempting WiFi connection to: %s\n", ssid.c_str());
+                
+                request->send(200, "application/json", "{\"success\":true,\"message\":\"Connection initiated\"}");
+            } else {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid SSID\"}");
+            }
+            return;
+        }
+        
+        // Parse JSON data
+        String ssid = doc["ssid"] | "";
+        String password = doc["password"] | "";
+        
+        if (ssid.length() > 0) {
+            // Store credentials
+            preferences.putString("wifi_ssid", ssid);
+            preferences.putString("wifi_password", password);
+            
+            // Attempt connection
+            WiFi.mode(WIFI_STA);
+            WiFi.begin(ssid.c_str(), password.c_str());
+            
+            Serial.printf("🔄 Attempting WiFi connection to: %s\n", ssid.c_str());
+            
+            request->send(200, "application/json", "{\"success\":true,\"message\":\"Connection initiated\"}");
+        } else {
+            request->send(400, "application/json", "{\"success\":false,\"error\":\"SSID required\"}");
+        }
+    });
+    
+    server.on("/api/wifi/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
+        int n = WiFi.scanNetworks();
+        DynamicJsonDocument doc(2048);
+        JsonArray networks = doc.createNestedArray("networks");
+        
+        for (int i = 0; i < n; i++) {
+            JsonObject network = networks.createNestedObject();
+            network["ssid"] = WiFi.SSID(i);
+            network["rssi"] = WiFi.RSSI(i);
+            network["secure"] = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    // Setup check endpoint - determines if box needs initial configuration
+    server.on("/api/setup-status", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(512);
+        
+        // Check if basic configuration is complete
+        bool hasWifiConfig = preferences.getString("wifi_ssid", "").length() > 0;
+        bool hasTimerConfig = preferences.getInt("timer_mode", -1) >= 0;
+        bool hasServoCalibration = preferences.getInt("servo_locked_pos", -1) >= 0 && 
+                                 preferences.getInt("servo_unlocked_pos", -1) >= 0;
+        bool hasCostConfig = preferences.getString("product_name", "").length() > 0;
+        
+        bool isConfigured = hasTimerConfig && hasServoCalibration;
+        
+        doc["configured"] = isConfigured;
+        doc["firstRun"] = !isConfigured;
+        doc["checks"]["wifi"] = hasWifiConfig;
+        doc["checks"]["timer"] = hasTimerConfig;
+        doc["checks"]["servo"] = hasServoCalibration;
+        doc["checks"]["cost"] = hasCostConfig;
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
     
     // Handle 404
     server.onNotFound([](AsyncWebServerRequest *request) {
@@ -805,6 +1170,18 @@ void saveStatus() {
 void loadConfiguration() {
     currentMode = (TimerMode)preferences.getInt(KEY_TIMER_MODE, FIXED_INTERVAL);
     
+    // Load language configuration
+    languageConfig.currentLanguage = preferences.getString("current_language", "en");
+    languageConfig.supportedLanguages = preferences.getString("supported_languages", "en,pt,es,fr,de");
+    
+    // Load cost configuration
+    costConfig.productName = preferences.getString("product_name", "Cigarettes");
+    costConfig.currency = preferences.getString("currency", "EUR");
+    costConfig.usePackPrice = preferences.getBool("use_pack_price", false);
+    costConfig.cigaretteCost = preferences.getFloat("cigarette_cost", 0.50);
+    costConfig.packCost = preferences.getFloat("pack_cost", 10.00);
+    costConfig.cigarettesPerPack = preferences.getInt("cigarettes_per_pack", 20);
+    
     // Load schedule configuration for scheduled modes
     if (currentMode == DAILY_SCHEDULE || currentMode == WEEKLY_SCHEDULE) {
         int hour = preferences.getInt(KEY_DAILY_HOUR, 22);
@@ -821,7 +1198,8 @@ void loadConfiguration() {
         Serial.printf("📅 Loaded schedule: %02d:%02d for %d minutes\n", hour, minute, unlockDuration);
     }
     
-    Serial.printf("📖 Loaded configuration - Mode: %d\n", currentMode);
+    Serial.printf("📖 Loaded configuration - Mode: %d, Language: %s, Currency: %s\n", 
+                  currentMode, languageConfig.currentLanguage.c_str(), costConfig.currency.c_str());
 }
 
 String getStatusJSON() {
@@ -1116,7 +1494,7 @@ String getCopingStrategy(String trigger, String personality) {
         } else if (personality == "strict") {
             strategy = "Boredom is a luxury problem. Do 50 push-ups right now, then clean something, then learn something. If you have time to be bored, you have time to improve yourself. Make this craving cost you something positive instead of something destructive.";
         } else if (personality == "understanding") {
-            strategy = "Being bored when you're quitting can feel really uncomfortable because you're used to filling that space with smoking. It's okay to just sit with the boredom for a minute. Maybe try a gentle activity like stretching, making tea, or just looking out the window and noticing what you see.";
+            strategy = "Being bored when you're trying to quit can feel really uncomfortable because you're used to filling that space with smoking. It's okay to just sit with the boredom for a minute. Maybe try a gentle activity like stretching, making tea, or just looking out the window and noticing what you see.";
         } else if (personality == "professional") {
             strategy = "Engage your dopamine system through novel, low-commitment activities: 1) Learn three new facts about a topic that interests you, 2) Rearrange your immediate environment, 3) Practice a brief mindfulness exercise focusing on sensory input rather than thought suppression.";
         }
@@ -1134,7 +1512,7 @@ String getCopingStrategy(String trigger, String personality) {
         if (personality == "supportive") {
             strategy = "Habits are so automatic, which is why they're extra tricky. Let's interrupt the pattern: do the first part of your smoking routine, but replace the cigarette with something else - hold a pen like a cigarette, step outside but do jumping jacks instead, or take the break but drink water.";
         } else if (personality == "strict") {
-            strategy = "Habits are just weak excuses. You control your actions, not the other way around. Right now: do the opposite of what the habit wants. If you usually smoke sitting down, stand up and pace. If you smoke outside, stay inside. Break the pattern by choosing differently.";
+            strategy = "Habits are just weak excuses. You control your actions, not the other way around. Right now: do the opposite of what the habit wants. If you normally smoke sitting down, stand up and pace. If you smoke outside, stay inside. Break the pattern by choosing differently.";
         } else if (personality == "understanding") {
             strategy = "Habitual cravings can sneak up on you because they're not really about wanting to smoke - they're about the familiar routine. Try keeping most of the routine but swapping out the cigarette: take the same break, go to the same place, but chew gum or do breathing exercises instead.";
         } else if (personality == "professional") {

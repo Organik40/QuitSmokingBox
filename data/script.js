@@ -6,11 +6,16 @@ class SmokingTimerBox {
         this.currentState = {};
         this.websocket = null;
         this.aiSession = null;
+        this.setupStatus = null; // NEW: Track setup status
         
         this.initializeWebSocket();
         this.initializeEventListeners();
         this.startPeriodicUpdates();
         this.loadConfiguration();
+        this.checkSetupStatus(); // NEW: Check if setup is needed
+        
+        // Initialize language selector
+        this.initializeLanguageSelector();
         
         // Check for PWA support
         this.initializePWA();
@@ -214,6 +219,74 @@ class SmokingTimerBox {
             }
             
             this.updateFormVisibility(timerMode);
+        }
+    }
+
+    // NEW: Check setup status and show setup flow if needed
+    async checkSetupStatus() {
+        try {
+            const setupStatus = await this.apiCall('/api/setup-status');
+            this.setupStatus = setupStatus;
+            
+            if (setupStatus && !setupStatus.configured) {
+                this.showSetupFlow();
+            } else {
+                this.hideSetupFlow();
+            }
+        } catch (error) {
+            console.error('Error checking setup status:', error);
+        }
+    }
+
+    showSetupFlow() {
+        const setupCard = document.getElementById('setupCard');
+        if (setupCard) {
+            setupCard.style.display = 'block';
+        }
+        
+        // Hide main configuration card if not set up
+        const configCard = document.querySelector('.config-card');
+        if (configCard) {
+            configCard.style.display = 'none';
+        }
+        
+        this.updateSetupChecklist();
+    }
+
+    hideSetupFlow() {
+        const setupCard = document.getElementById('setupCard');
+        if (setupCard) {
+            setupCard.style.display = 'none';
+        }
+        
+        // Show main configuration card when setup is complete
+        const configCard = document.querySelector('.config-card');
+        if (configCard) {
+            configCard.style.display = 'block';
+        }
+    }
+
+    updateSetupChecklist() {
+        if (!this.setupStatus) return;
+        
+        const checks = this.setupStatus.checks;
+        
+        // Update checklist items
+        this.updateChecklistItem('timerCheck', checks.timer, 'Timer configuration');
+        this.updateChecklistItem('servoCheck', checks.servo, 'Servo calibration');
+        this.updateChecklistItem('wifiCheck', checks.wifi, 'WiFi connection');
+        this.updateChecklistItem('costCheck', checks.cost, 'Cost settings');
+    }
+
+    updateChecklistItem(elementId, isComplete, label) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.className = `checklist-item ${isComplete ? 'complete' : 'incomplete'}`;
+            element.innerHTML = `
+                <span class="checklist-icon">${isComplete ? '✅' : '⭕'}</span>
+                <span class="checklist-label">${label}</span>
+                <span class="checklist-status">${isComplete ? 'Complete' : 'Pending'}</span>
+            `;
         }
     }
 
@@ -1109,6 +1182,15 @@ class SmokingTimerBox {
         document.getElementById('aiEmergencyComplete').textContent = 'Complete & Unlock';
         document.getElementById('emergencySessionTime').textContent = '10:00';
         this.aiEmergencyMessageCount = 0;
+    }
+
+    initializeLanguageSelector() {
+        if (typeof i18n !== 'undefined') {
+            const container = document.getElementById('languageSelectorContainer');
+            if (container) {
+                container.innerHTML = i18n.createLanguageSelector();
+            }
+        }
     }
 }
 

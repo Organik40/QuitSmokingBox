@@ -1,70 +1,115 @@
-// Settings Page JavaScript for Quit Smoking Timer Box
+// Enhanced Settings JavaScript for Quit Smoking Timer Box
 class SettingsManager {
     constructor() {
         this.apiBase = '';
+        this.currentSettings = {};
         this.aiSession = null;
+        
         this.initializeEventListeners();
         this.loadAllSettings();
     }
 
     initializeEventListeners() {
+        // Cost form handler
+        const costForm = document.getElementById('costForm');
+        if (costForm) {
+            costForm.addEventListener('submit', (e) => this.handleCostSubmit(e));
+            
+            // Radio button change handlers
+            const costTypeRadios = document.querySelectorAll('input[name="costType"]');
+            costTypeRadios.forEach(radio => {
+                radio.addEventListener('change', () => this.handleCostTypeChange());
+            });
+        }
+
         // WiFi form submission
-        document.getElementById('wifiForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveWiFiSettings();
-        });
+        const wifiForm = document.getElementById('wifiForm');
+        if (wifiForm) {
+            wifiForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveWiFiSettings();
+            });
+        }
 
         // AI form submission
-        document.getElementById('aiForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveAISettings();
-        });
+        const aiForm = document.getElementById('aiForm');
+        if (aiForm) {
+            aiForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveAISettings();
+            });
+        }
 
         // Network security form submission
-        document.getElementById('networkForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveNetworkSettings();
-        });
+        const networkForm = document.getElementById('networkForm');
+        if (networkForm) {
+            networkForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveNetworkSettings();
+            });
+        }
 
         // Progress form submission
-        document.getElementById('progressForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveProgressSettings();
-        });
+        const progressForm = document.getElementById('progressForm');
+        if (progressForm) {
+            progressForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveProgressSettings();
+            });
+        }
+
+        // Timer form handler
+        const timerForm = document.getElementById('timerForm');
+        if (timerForm) {
+            timerForm.addEventListener('submit', (e) => this.handleTimerSubmit(e));
+            
+            // Timer mode change handler
+            const timerMode = document.getElementById('timerMode');
+            if (timerMode) {
+                timerMode.addEventListener('change', () => this.handleTimerModeChange());
+            }
+        }
 
         // AI enable/disable toggle
-        document.getElementById('aiEnabled').addEventListener('change', (e) => {
-            this.toggleAIConfig(e.target.checked);
-        });
+        const aiEnabled = document.getElementById('aiEnabled');
+        if (aiEnabled) {
+            aiEnabled.addEventListener('change', (e) => {
+                this.toggleAIConfig(e.target.checked);
+            });
+        }
 
         // AI provider change
-        document.getElementById('aiProvider').addEventListener('change', (e) => {
-            this.updateAPIKeyVisibility(e.target.value);
-        });
+        const aiProvider = document.getElementById('aiProvider');
+        if (aiProvider) {
+            aiProvider.addEventListener('change', (e) => {
+                this.updateAPIKeyVisibility(e.target.value);
+            });
+        }
 
         // Test AI button
-        document.getElementById('testAI').addEventListener('click', () => {
-            this.testAIGatekeeper();
+        const testAI = document.getElementById('testAI');
+        if (testAI) {
+            testAI.addEventListener('click', () => {
+                this.testAIGatekeeper();
+            });
+        }
+
+        // Language change handler from i18n system
+        window.addEventListener('languageChanged', (e) => {
+            this.saveLanguagePreference(e.detail.language);
         });
 
-        // AI Modal handlers
-        document.getElementById('aiSend').addEventListener('click', () => {
-            this.sendAIMessage();
-        });
+        // WiFi scan button
+        const scanButton = document.getElementById('scanWiFi');
+        if (scanButton) {
+            scanButton.addEventListener('click', () => this.scanWiFiNetworks());
+        }
 
-        document.getElementById('aiUserInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.sendAIMessage();
-            }
-        });
-
-        document.getElementById('aiCancel').addEventListener('click', () => {
-            this.closeAIModal();
-        });
-
-        document.getElementById('aiComplete').addEventListener('click', () => {
-            this.completeAISession();
-        });
+        // WiFi status check button
+        const statusButton = document.getElementById('checkWiFiStatus');
+        if (statusButton) {
+            statusButton.addEventListener('click', () => this.checkWiFiStatus());
+        }
     }
 
     async apiCall(endpoint, method = 'GET', data = null) {
@@ -94,23 +139,163 @@ class SettingsManager {
         }
     }
 
-    async loadSettings() {
-        // Load WiFi settings
-        const wifiStatus = await this.apiCall('/api/wifi/status');
-        if (wifiStatus) {
-            this.updateWiFiStatus(wifiStatus);
+    async loadAllSettings() {
+        try {
+            await Promise.all([
+                this.loadCostSettings(),
+                this.loadWiFiSettings(),
+                this.loadAISettings(),
+                this.loadSecuritySettings(),
+                this.loadTimerSettings()
+            ]);
+            
+            console.log('✅ All settings loaded');
+        } catch (error) {
+            console.error('❌ Error loading settings:', error);
+            this.showMessage('Failed to load settings', 'error');
         }
+    }
 
-        // Load AI settings
-        const aiSettings = await this.apiCall('/api/ai/config');
-        if (aiSettings) {
-            this.loadAISettings(aiSettings);
+    async loadWiFiSettings() {
+        try {
+            const wifiStatus = await this.apiCall('/api/wifi/status');
+            if (wifiStatus) {
+                this.updateWiFiStatus(wifiStatus);
+            }
+        } catch (error) {
+            console.error('Failed to load WiFi settings:', error);
         }
+    }
 
-        // Load security settings
-        const securitySettings = await this.apiCall('/api/security/config');
-        if (securitySettings) {
-            this.loadSecuritySettings(securitySettings);
+    async loadAISettings() {
+        try {
+            const aiSettings = await this.apiCall('/api/ai/config');
+            if (aiSettings) {
+                const enableAI = document.getElementById('enableAI');
+                if (enableAI) enableAI.checked = aiSettings.enabled || false;
+                
+                const provider = document.getElementById('aiProvider');
+                if (provider) provider.value = aiSettings.provider || 'simple';
+                
+                const apiKey = document.getElementById('aiApiKey');
+                if (apiKey) apiKey.value = aiSettings.apiKey || '';
+                
+                const delayMinutes = document.getElementById('delayMinutes');
+                if (delayMinutes) delayMinutes.value = aiSettings.delayMinutes || 10;
+                
+                const personality = document.getElementById('aiPersonality');
+                if (personality) personality.value = aiSettings.personality || 'supportive';
+                
+                this.toggleAIConfig(aiSettings.enabled || false);
+                this.updateAPIKeyVisibility(aiSettings.provider || 'simple');
+            }
+        } catch (error) {
+            console.error('Failed to load AI settings:', error);
+        }
+    }
+
+    async loadSecuritySettings() {
+        try {
+            const securitySettings = await this.apiCall('/api/security/config');
+            if (securitySettings) {
+                // Load allowed networks
+                let allowedNetworks = [];
+                try {
+                    allowedNetworks = JSON.parse(securitySettings.allowedNetworks || '[]');
+                } catch (e) {
+                    allowedNetworks = [];
+                }
+                
+                // Load blocked networks  
+                let blockedNetworks = [];
+                try {
+                    blockedNetworks = JSON.parse(securitySettings.blockedNetworks || '[]');
+                } catch (e) {
+                    blockedNetworks = [];
+                }
+                
+                this.populateNetworkList('allowedNetworks', allowedNetworks);
+                this.populateNetworkList('blockedNetworks', blockedNetworks);
+                
+                const blockOnPublic = document.getElementById('blockOnPublic');
+                if (blockOnPublic) blockOnPublic.checked = securitySettings.blockOnPublic || false;
+            }
+        } catch (error) {
+            console.error('Failed to load security settings:', error);
+        }
+    }
+
+    async loadCostSettings() {
+        try {
+            const response = await fetch('/api/cost-config');
+            if (response.ok) {
+                const settings = await response.json();
+                
+                const productNameEl = document.getElementById('productName');
+                if (productNameEl) productNameEl.value = settings.productName || '';
+                
+                const currencyEl = document.getElementById('currency');
+                if (currencyEl) currencyEl.value = settings.currency || 'EUR';
+                
+                const costType = settings.usePackPrice ? 'pack' : 'cigarette';
+                const costTypeEl = document.querySelector(`input[name="costType"][value="${costType}"]`);
+                if (costTypeEl) costTypeEl.checked = true;
+                
+                const cigaretteCostEl = document.getElementById('costPerCigarette');
+                if (cigaretteCostEl) cigaretteCostEl.value = settings.cigaretteCost || 0.50;
+                
+                const packCostEl = document.getElementById('costPerPack');
+                if (packCostEl) packCostEl.value = settings.packCost || 10.00;
+                
+                const cigarettesPerPackEl = document.getElementById('cigarettesPerPack');
+                if (cigarettesPerPackEl) cigarettesPerPackEl.value = settings.cigarettesPerPack || 20;
+                
+                this.handleCostTypeChange();
+            }
+        } catch (error) {
+            console.error('Failed to load cost settings:', error);
+        }
+    }
+
+    async loadTimerSettings() {
+        try {
+            const response = await fetch('/api/config');
+            if (response.ok) {
+                const settings = await response.json();
+                
+                const timerModeEl = document.getElementById('timerMode');
+                if (timerModeEl) {
+                    timerModeEl.value = settings.timerMode || 0;
+                    this.handleTimerModeChange();
+                }
+                
+                const intervalEl = document.getElementById('intervalMinutes');
+                if (intervalEl) intervalEl.value = settings.intervalMinutes || 30;
+                
+                const dailyLimitEl = document.getElementById('dailyLimit');
+                if (dailyLimitEl) dailyLimitEl.value = settings.dailyLimit || 10;
+            }
+        } catch (error) {
+            console.error('Failed to load timer settings:', error);
+        }
+    }
+
+    updateWiFiStatus(status) {
+        const statusEl = document.getElementById('wifiStatus');
+        const ssidEl = document.getElementById('currentSSID');
+        const ipEl = document.getElementById('currentIP');
+        
+        if (statusEl) {
+            statusEl.textContent = status.connected ? 'Connected' : 'Disconnected';
+            statusEl.className = `status ${status.connected ? 'connected' : 'disconnected'}`;
+        }
+        
+        if (ssidEl) {
+            ssidEl.textContent = status.connected ? status.ssid : 'Not connected';
+        }
+        
+        if (ipEl) {
+            ipEl.textContent = status.connected ? status.ip : 'N/A';
         }
     }
 
@@ -143,8 +328,6 @@ class SettingsManager {
         const apiKey = document.getElementById('aiApiKey').value;
         const delayMinutes = parseInt(document.getElementById('delayMinutes').value);
         const personality = document.getElementById('aiPersonality').value;
-        const requireQuestions = document.getElementById('requireQuestions').checked;
-        const breathingExercise = document.getElementById('breathingExercise').checked;
 
         if (enableAI && provider === 'openai' && !apiKey) {
             this.showMessage('Please enter an API key for OpenAI.', 'error');
@@ -156,9 +339,7 @@ class SettingsManager {
             provider: provider,
             apiKey: apiKey,
             delayMinutes: delayMinutes,
-            personality: personality,
-            requireQuestions: requireQuestions,
-            breathingExercise: breathingExercise
+            personality: personality
         };
 
         const result = await this.apiCall('/api/ai/config', 'POST', aiConfig);
@@ -172,10 +353,12 @@ class SettingsManager {
     async saveNetworkSettings() {
         const allowedNetworks = this.getNetworkList('allowedNetworks');
         const blockedNetworks = this.getNetworkList('blockedNetworks');
+        const blockOnPublic = document.getElementById('blockOnPublic').checked;
 
         const securityConfig = {
-            allowedNetworks: allowedNetworks,
-            blockedNetworks: blockedNetworks
+            allowedNetworks: JSON.stringify(allowedNetworks),
+            blockedNetworks: JSON.stringify(blockedNetworks),
+            blockOnPublic: blockOnPublic
         };
 
         const result = await this.apiCall('/api/security/config', 'POST', securityConfig);
@@ -195,10 +378,7 @@ class SettingsManager {
             startDate: formData.get('startDate')
         };
 
-        // Store in preferences (you'll need to add an API endpoint for this)
         try {
-            // For now, just show success message
-            // TODO: Add API endpoint for progress settings
             this.showMessage('Progress settings saved locally!', 'success');
         } catch (error) {
             console.error('Error saving progress settings:', error);
@@ -206,494 +386,271 @@ class SettingsManager {
         }
     }
 
-    async loadAllSettings() {
-        await this.loadWiFiStatus();
-        await this.loadAISettings();
-        await this.loadNetworkSettings();
-        await this.loadProgressSettings();
-    }
-
-    async loadAISettings() {
-        try {
-            const response = await fetch('/api/ai/config');
-            if (response.ok) {
-                const config = await response.json();
-                
-                document.getElementById('aiEnabled').checked = config.enabled || false;
-                document.getElementById('aiProvider').value = config.provider || 'simple';
-                document.getElementById('aiApiKey').value = config.apiKey || '';
-                document.getElementById('aiPersonality').value = config.personality || 'supportive';
-                document.getElementById('aiDelayMinutes').value = config.delayMinutes || 10;
-                
-                this.toggleAIConfig(config.enabled || false);
-                this.updateAPIKeyVisibility(config.provider || 'simple');
-            }
-        } catch (error) {
-            console.error('Failed to load AI settings:', error);
-        }
-    }
-
-    async loadNetworkSettings() {
-        try {
-            const response = await fetch('/api/network/config');
-            if (response.ok) {
-                const config = await response.json();
-                
-                document.getElementById('blockOnPublic').checked = config.blockOnPublic || false;
-                document.getElementById('allowedNetworks').value = config.allowedNetworks || '[]';
-                document.getElementById('blockedNetworks').value = config.blockedNetworks || '[]';
-            }
-        } catch (error) {
-            console.error('Failed to load network settings:', error);
-        }
-    }
-
-    async loadProgressSettings() {
-        // Load progress tracking settings from status endpoint
-        try {
-            const response = await fetch('/api/status');
-            if (response.ok) {
-                const status = await response.json();
-                
-                // Set cigarette cost if available
-                const cost = parseFloat((status.moneySaved || 0) / Math.max((status.totalCigarettes || 1), 1));
-                if (cost > 0) {
-                    document.getElementById('cigaretteCost').value = cost.toFixed(2);
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load progress settings:', error);
-        }
-    }
-
-    async loadWiFiStatus() {
-        try {
-            const response = await fetch('/api/status');
-            if (response.ok) {
-                const status = await response.json();
-                
-                const indicator = document.getElementById('wifiIndicator');
-                const statusText = document.getElementById('wifiStatusText');
-                
-                if (status.wifiConnected) {
-                    if (status.currentNetwork === 'AP Mode') {
-                        indicator.textContent = '🟡';
-                        statusText.textContent = 'Access Point Mode';
-                    } else {
-                        indicator.textContent = '🟢';
-                        statusText.textContent = `Connected to: ${status.currentNetwork}`;
-                    }
-                } else {
-                    indicator.textContent = '🔴';
-                    statusText.textContent = 'Not Connected';
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load WiFi status:', error);
-        }
-    }
-
-    toggleAIConfig(enabled) {
-        const aiConfig = document.getElementById('aiConfig');
-        aiConfig.style.display = enabled ? 'block' : 'none';
-    }
-
-    updateAPIKeyVisibility(provider) {
-        const apiKeyGroup = document.getElementById('apiKeyGroup');
-        apiKeyGroup.style.display = provider === 'openai' ? 'block' : 'none';
-    }
-
-    addNetworkInput(containerId) {
-        const container = document.getElementById(containerId);
-        const networkItem = document.createElement('div');
-        networkItem.className = 'network-item';
-        networkItem.innerHTML = `
-            <input type="text" placeholder="Network name" class="input-field network-input">
-            <button type="button" class="btn-small remove-network">❌</button>
-        `;
-
-        // Add remove functionality
-        networkItem.querySelector('.remove-network').addEventListener('click', () => {
-            networkItem.remove();
+    async handleCostSubmit(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const costType = formData.get('costType');
+        
+        const data = new URLSearchParams({
+            productName: formData.get('productName') || '',
+            currency: formData.get('currency') || 'EUR',
+            usePackPrice: costType === 'pack' ? 'true' : 'false',
+            cigaretteCost: formData.get('costPerCigarette') || '0.50',
+            packCost: formData.get('costPerPack') || '10.00',
+            cigarettesPerPack: formData.get('cigarettesPerPack') || '20'
         });
 
-        container.appendChild(networkItem);
-    }
+        try {
+            const response = await fetch('/api/cost-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: data
+            });
 
-    getNetworkList(containerId) {
-        const container = document.getElementById(containerId);
-        const inputs = container.querySelectorAll('.network-input');
-        return Array.from(inputs)
-            .map(input => input.value.trim())
-            .filter(value => value !== '');
-    }
-
-    loadAISettings(settings) {
-        document.getElementById('enableAI').checked = settings.enabled || false;
-        document.getElementById('aiProvider').value = settings.provider || 'simple';
-        document.getElementById('aiApiKey').value = settings.apiKey || '';
-        document.getElementById('delayMinutes').value = settings.delayMinutes || 10;
-        document.getElementById('aiPersonality').value = settings.personality || 'supportive';
-        document.getElementById('requireQuestions').checked = settings.requireQuestions !== false;
-        document.getElementById('breathingExercise').checked = settings.breathingExercise !== false;
-
-        this.toggleAIConfig(settings.enabled || false);
-    }
-
-    loadSecuritySettings(settings) {
-        // Load allowed networks
-        this.loadNetworkList('allowedNetworks', settings.allowedNetworks || []);
-        // Load blocked networks
-        this.loadNetworkList('blockedNetworks', settings.blockedNetworks || []);
-    }
-
-    loadNetworkList(containerId, networks) {
-        const container = document.getElementById(containerId);
-        // Clear existing except the first placeholder
-        const items = container.querySelectorAll('.network-item');
-        for (let i = 1; i < items.length; i++) {
-            items[i].remove();
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showMessage('Settings saved successfully!', 'success');
+            } else {
+                this.showMessage(result.error || 'Failed to save settings', 'error');
+            }
+        } catch (error) {
+            console.error('Cost settings error:', error);
+            this.showMessage('Failed to save cost settings', 'error');
         }
+    }
 
-        // Set first input if networks exist
-        if (networks.length > 0) {
-            const firstInput = container.querySelector('.network-input');
-            firstInput.value = networks[0];
-
-            // Add additional networks
-            for (let i = 1; i < networks.length; i++) {
-                this.addNetworkInput(containerId);
-                const newInput = container.lastElementChild.querySelector('.network-input');
-                newInput.value = networks[i];
+    handleCostTypeChange() {
+        const costTypeEl = document.querySelector('input[name="costType"]:checked');
+        if (!costTypeEl) return;
+        
+        const costType = costTypeEl.value;
+        
+        const cigaretteField = document.getElementById('costPerCigarette');
+        const packField = document.getElementById('costPerPack');
+        const packCountField = document.getElementById('cigarettesPerPack');
+        
+        if (cigaretteField && packField && packCountField) {
+            if (costType === 'cigarette') {
+                cigaretteField.disabled = false;
+                packField.disabled = true;
+                packCountField.disabled = true;
+                
+                cigaretteField.style.opacity = '1';
+                packField.style.opacity = '0.5';
+                packCountField.style.opacity = '0.5';
+            } else {
+                cigaretteField.disabled = true;
+                packField.disabled = false;
+                packCountField.disabled = false;
+                
+                cigaretteField.style.opacity = '0.5';
+                packField.style.opacity = '1';
+                packCountField.style.opacity = '1';
             }
         }
     }
 
-    updateWiFiStatus(status) {
-        const indicator = document.getElementById('wifiIndicator');
-        const statusText = document.getElementById('wifiStatusText');
+    async handleTimerSubmit(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        
+        const data = new URLSearchParams({
+            timerMode: formData.get('timerMode') || '0',
+            intervalMinutes: formData.get('intervalMinutes') || '30',
+            dailyLimit: formData.get('dailyLimit') || '10'
+        });
 
-        if (status.connected) {
-            indicator.textContent = '🟢';
-            statusText.textContent = `Connected to ${status.ssid}`;
-        } else {
-            indicator.textContent = '🔴';
-            statusText.textContent = 'Not Connected';
+        try {
+            const response = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: data
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showMessage('Timer settings saved successfully!', 'success');
+            } else {
+                this.showMessage(result.error || 'Failed to save timer settings', 'error');
+            }
+        } catch (error) {
+            console.error('Timer settings error:', error);
+            this.showMessage('Failed to save timer settings', 'error');
+        }
+    }
+
+    handleTimerModeChange() {
+        const timerModeEl = document.getElementById('timerMode');
+        if (!timerModeEl) return;
+        
+        const mode = parseInt(timerModeEl.value);
+        const intervalGroup = document.getElementById('intervalGroup');
+        const dailyLimitGroup = document.getElementById('dailyLimitGroup');
+        
+        // Show/hide relevant fields based on timer mode
+        if (intervalGroup) {
+            intervalGroup.style.display = (mode === 0 || mode === 1) ? 'block' : 'none';
+        }
+        
+        if (dailyLimitGroup) {
+            dailyLimitGroup.style.display = (mode === 1) ? 'block' : 'none';
+        }
+    }
+
+    async saveLanguagePreference(language) {
+        try {
+            const response = await fetch('/api/language', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ language })
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                console.error('Failed to save language preference:', result.error);
+            }
+        } catch (error) {
+            console.error('Language save error:', error);
+        }
+    }
+
+    async scanWiFiNetworks() {
+        const scanButton = document.getElementById('scanWiFi');
+        if (scanButton) {
+            scanButton.disabled = true;
+            scanButton.textContent = 'Scanning...';
+        }
+
+        try {
+            const result = await this.apiCall('/api/wifi/scan');
+            if (result && result.networks) {
+                this.populateNetworkDropdown(result.networks);
+                this.showMessage(`Found ${result.networks.length} networks`, 'info');
+            } else {
+                this.showMessage('No networks found', 'warning');
+            }
+        } catch (error) {
+            this.showMessage('Failed to scan networks', 'error');
+        } finally {
+            if (scanButton) {
+                scanButton.disabled = false;
+                scanButton.textContent = 'Scan Networks';
+            }
         }
     }
 
     async checkWiFiStatus() {
-        const status = await this.apiCall('/api/wifi/status');
-        if (status) {
-            this.updateWiFiStatus(status);
-        }
-    }
-
-    // AI Gatekeeper Test Functions
-    testAIGatekeeper() {
-        this.openAIModal();
-        this.startAISession(true); // Test mode
-    }
-
-    openAIModal() {
-        document.getElementById('aiModal').style.display = 'flex';
-        this.aiSessionStartTime = Date.now();
-        this.aiSessionActive = true;
-        this.startAITimer();
-    }
-
-    closeAIModal() {
-        document.getElementById('aiModal').style.display = 'none';
-        this.aiSessionActive = false;
-        this.clearAIConversation();
-    }
-
-    startAITimer() {
-        const timerElement = document.getElementById('sessionTime');
-        const delayMinutes = parseInt(document.getElementById('delayMinutes').value) || 10;
-        
-        this.aiTimerInterval = setInterval(() => {
-            if (!this.aiSessionActive) {
-                clearInterval(this.aiTimerInterval);
-                return;
+        try {
+            const status = await this.apiCall('/api/wifi/status');
+            if (status) {
+                this.updateWiFiStatus(status);
+                this.showMessage('WiFi status updated', 'info');
             }
+        } catch (error) {
+            this.showMessage('Failed to check WiFi status', 'error');
+        }
+    }
 
-            const elapsed = Date.now() - this.aiSessionStartTime;
-            const remaining = (delayMinutes * 60 * 1000) - elapsed;
-
-            if (remaining <= 0) {
-                timerElement.textContent = '0:00';
-                document.getElementById('aiComplete').disabled = false;
-                clearInterval(this.aiTimerInterval);
-            } else {
-                const minutes = Math.floor(remaining / 60000);
-                const seconds = Math.floor((remaining % 60000) / 1000);
-                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    populateNetworkDropdown(networks) {
+        const dropdown = document.getElementById('networkDropdown');
+        if (!dropdown) return;
+        
+        dropdown.innerHTML = '<option value="">Select a network...</option>';
+        
+        networks.forEach(network => {
+            const option = document.createElement('option');
+            option.value = network.ssid;
+            option.textContent = `${network.ssid} (${network.rssi} dBm)${network.secure ? ' 🔒' : ''}`;
+            dropdown.appendChild(option);
+        });
+        
+        dropdown.addEventListener('change', (e) => {
+            const ssidInput = document.getElementById('wifiSSID');
+            if (ssidInput) {
+                ssidInput.value = e.target.value;
             }
-        }, 1000);
+        });
     }
 
-    async startAISession(testMode = false) {
-        const conversation = document.getElementById('aiConversation');
-        const personality = document.getElementById('aiPersonality').value;
+    populateNetworkList(containerId, networks) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
         
-        const welcomeMessage = this.getWelcomeMessage(personality);
-        this.addAIMessage(welcomeMessage);
-
-        // Start with initial questions
-        setTimeout(() => {
-            this.addAIMessage(this.getInitialQuestion(personality));
-        }, 2000);
-    }
-
-    getWelcomeMessage(personality) {
-        const messages = {
-            supportive: "Hi there. I noticed you're trying to access an emergency unlock. I'm here to support you through this moment. Let's talk about what's happening.",
-            strict: "Hold on. Before we proceed with any emergency unlock, we need to have a serious conversation about what led you here.",
-            friend: "Hey, I can see you're having a tough moment. I'm here to listen and help you through this. What's going on?",
-            professional: "I understand you're experiencing a craving. This is a normal part of the recovery process. Let's work through this together."
-        };
-        return messages[personality] || messages.supportive;
-    }
-
-    getInitialQuestion(personality) {
-        const questions = {
-            supportive: "Can you tell me what triggered this craving? Sometimes talking about it helps reduce its power.",
-            strict: "On a scale of 1-10, how strong is this craving right now? And what specifically happened to trigger it?",
-            friend: "What's been going on today that brought you to this point? I'm here to listen without judgment.",
-            professional: "Let's identify the trigger. What situation, emotion, or thought led to this moment?"
-        };
-        return questions[personality] || questions.supportive;
-    }
-
-    sendAIMessage() {
-        const input = document.getElementById('aiUserInput');
-        const message = input.value.trim();
+        container.innerHTML = '';
         
-        if (!message) return;
-
-        this.addUserMessage(message);
-        input.value = '';
-
-        // Simulate AI response
-        setTimeout(() => {
-            this.generateAIResponse(message);
-        }, 1000 + Math.random() * 2000);
+        networks.forEach(network => {
+            const item = document.createElement('div');
+            item.className = 'network-item';
+            item.innerHTML = `
+                <span>${network}</span>
+                <button type="button" class="remove-network">Remove</button>
+            `;
+            container.appendChild(item);
+        });
     }
 
-    addAIMessage(message) {
-        const conversation = document.getElementById('aiConversation');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'ai-message';
-        messageDiv.innerHTML = `<div class="message-content">🤖 ${message}</div>`;
-        conversation.appendChild(messageDiv);
-        conversation.scrollTop = conversation.scrollHeight;
-    }
-
-    addUserMessage(message) {
-        const conversation = document.getElementById('aiConversation');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'user-message';
-        messageDiv.innerHTML = `<div class="message-content">👤 ${message}</div>`;
-        conversation.appendChild(messageDiv);
-        conversation.scrollTop = conversation.scrollHeight;
-    }
-
-    generateAIResponse(userMessage) {
-        const personality = document.getElementById('aiPersonality').value;
-        const responses = this.getAIResponses(personality, userMessage.toLowerCase());
+    getNetworkList(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return [];
         
-        const response = responses[Math.floor(Math.random() * responses.length)];
-        this.addAIMessage(response);
+        const items = container.querySelectorAll('.network-item span');
+        return Array.from(items).map(item => item.textContent);
     }
 
-    getAIResponses(personality, userMessage) {
-        // Simple rule-based responses
-        if (userMessage.includes('stress') || userMessage.includes('anxiety')) {
-            return [
-                "I hear that you're feeling stressed. Let's try a quick breathing exercise. Can you take 5 deep breaths with me?",
-                "Stress is a common trigger. What usually helps you manage stress in healthy ways?"
-            ];
+    toggleAIConfig(enabled) {
+        const configSection = document.getElementById('aiConfigSection');
+        if (configSection) {
+            configSection.style.display = enabled ? 'block' : 'none';
         }
-        
-        if (userMessage.includes('work') || userMessage.includes('job')) {
-            return [
-                "Work stress can be overwhelming. Have you considered taking a short walk or doing a quick meditation instead?",
-                "What would happen if you delayed this for just 10 more minutes? Would the work situation change?"
-            ];
+    }
+
+    updateAPIKeyVisibility(provider) {
+        const apiKeyGroup = document.getElementById('apiKeyGroup');
+        if (apiKeyGroup) {
+            apiKeyGroup.style.display = provider === 'openai' ? 'block' : 'none';
         }
-
-        // Default responses
-        const defaults = {
-            supportive: [
-                "Thank you for sharing that with me. You've made it this far in your quit journey - that's already incredible strength.",
-                "I can hear this is difficult. Remember, cravings are temporary, but your progress is real and lasting."
-            ],
-            strict: [
-                "Think about why you started this journey. Are you really ready to throw away all your progress for a temporary feeling?",
-                "This is exactly the kind of moment that separates success from failure. What choice are you going to make?"
-            ],
-            friend: [
-                "I get it, this is tough. But you know what? You've handled tough moments before. What helped you then?",
-                "What would you tell me if I was in your situation right now? Sometimes we give better advice than we take."
-            ],
-            professional: [
-                "This reaction is part of the recovery process. Your brain is trying to return to old patterns. How can we redirect this energy?",
-                "Let's explore this feeling without acting on it immediately. What physical sensations are you experiencing right now?"
-            ]
-        };
-
-        return defaults[personality] || defaults.supportive;
-    }
-
-    completeAISession() {
-        this.closeAIModal();
-        this.showMessage('AI session completed. Remember: you are stronger than your cravings!', 'success');
-    }
-
-    clearAIConversation() {
-        document.getElementById('aiConversation').innerHTML = '';
-        document.getElementById('aiComplete').disabled = true;
-        document.getElementById('sessionTime').textContent = '10:00';
     }
 
     async testAIGatekeeper() {
-        if (this.aiSession) {
-            this.showMessage('AI test session already active', 'warning');
-            return;
-        }
-
+        this.showMessage('Testing AI Gatekeeper...', 'info');
+        
         try {
-            // Create a mock AI test session
-            this.aiSession = {
-                id: 'test-' + Date.now(),
-                startTime: Date.now(),
-                isTest: true
-            };
-
-            this.showAITestInterface();
+            const result = await this.apiCall('/api/emergency/ai', 'POST', { trigger: 'test' });
+            if (result && result.success) {
+                this.showMessage('AI Gatekeeper test successful!', 'success');
+            } else {
+                this.showMessage('AI Gatekeeper test failed', 'error');
+            }
         } catch (error) {
-            console.error('Error starting AI test:', error);
-            this.showMessage('Failed to start AI test', 'error');
+            this.showMessage('Failed to test AI Gatekeeper', 'error');
         }
     }
 
-    showAITestInterface() {
-        const testModal = document.createElement('div');
-        testModal.className = 'modal ai-chat-modal';
-        testModal.style.display = 'flex';
-        testModal.innerHTML = `
-            <div class="modal-content ai-chat-content">
-                <div class="ai-chat-header">
-                    <h3>🧪 AI Test Session</h3>
-                    <div class="session-timer">
-                        Test Mode
-                    </div>
-                </div>
-                
-                <div class="ai-chat-messages" id="testChatMessages">
-                    <div class="ai-message">
-                        <strong>AI Counselor (Test):</strong> This is a test session. Try asking me about coping strategies or tell me about what triggers your cravings.
-                    </div>
-                </div>
-                
-                <div class="ai-chat-input">
-                    <div class="input-group">
-                        <input type="text" id="testUserMessage" placeholder="Test the AI conversation..." class="form-control">
-                        <button id="sendTestMessage" class="btn btn-primary">Send</button>
-                    </div>
-                </div>
-                
-                <div class="ai-chat-footer">
-                    <div class="session-info">
-                        Test mode - No emergency unlock will be granted
-                    </div>
-                    <button id="closeTestSession" class="btn btn-secondary">Close Test</button>
-                </div>
-            </div>
-        `;
+    showMessage(message, type = 'info') {
+        // Remove existing messages
+        const existingMessages = document.querySelectorAll('.settings-message');
+        existingMessages.forEach(msg => msg.remove());
         
-        document.body.appendChild(testModal);
+        // Create new message
+        const messageEl = document.createElement('div');
+        messageEl.className = `settings-message ${type}`;
+        messageEl.textContent = message;
         
-        // Initialize test chat functionality
-        this.initializeTestAIChat(testModal);
-    }
-
-    initializeTestAIChat(testModal) {
-        const userMessageInput = testModal.querySelector('#testUserMessage');
-        const sendBtn = testModal.querySelector('#sendTestMessage');
-        const messagesContainer = testModal.querySelector('#testChatMessages');
-        const closeBtn = testModal.querySelector('#closeTestSession');
+        // Insert at top of settings container
+        const container = document.querySelector('.settings-container') || document.body;
+        container.insertBefore(messageEl, container.firstChild);
         
-        const sendMessage = async () => {
-            const message = userMessageInput.value.trim();
-            if (!message) return;
-            
-            // Add user message to chat
-            this.addTestChatMessage(messagesContainer, message, true);
-            userMessageInput.value = '';
-            
-            // Simulate AI response (since this is a test)
-            setTimeout(() => {
-                const aiResponse = this.generateTestAIResponse(message);
-                this.addTestChatMessage(messagesContainer, aiResponse, false);
-            }, 1000);
-        };
-        
-        sendBtn.addEventListener('click', sendMessage);
-        userMessageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-        
-        closeBtn.addEventListener('click', () => {
-            testModal.remove();
-            this.aiSession = null;
-        });
-    }
-
-    addTestChatMessage(container, message, isUser) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = isUser ? 'user-message' : 'ai-message';
-        messageDiv.innerHTML = `<strong>${isUser ? 'You' : 'AI Counselor (Test)'}:</strong> ${message}`;
-        container.appendChild(messageDiv);
-        container.scrollTop = container.scrollHeight;
-    }
-
-    generateTestAIResponse(userMessage) {
-        const responses = [
-            "I understand you're testing the system. The real AI would provide personalized coping strategies here.",
-            "In a real emergency session, I would ask about your triggers and suggest breathing exercises.",
-            "This test demonstrates how the conversation would work to help you resist cravings.",
-            "The actual AI would provide more detailed support based on your specific situation.",
-            "Thank you for testing. The real system would engage you for the full 10-minute minimum."
-        ];
-        
-        return responses[Math.floor(Math.random() * responses.length)];
-    }
-
-    showMessage(message, type) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-        messageDiv.textContent = message;
-        messageDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            z-index: 1000;
-            background: ${type === 'success' ? '#22C55E' : type === 'error' ? '#EF4444' : '#F59E0B'};
-        `;
-        
-        document.body.appendChild(messageDiv);
-        
+        // Auto-remove after 5 seconds
         setTimeout(() => {
-            messageDiv.remove();
-        }, 3000);
+            if (messageEl.parentNode) {
+                messageEl.remove();
+            }
+        }, 5000);
     }
 }
 

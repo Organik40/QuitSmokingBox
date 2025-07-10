@@ -11,11 +11,20 @@ public:
     void lock();
     void unlock();
     bool isLocked();
+    void moveTo(int position);
+    int getCurrentPosition();
+    void setLockedPosition(int position);
+    void setUnlockedPosition(int position);
+    int getLockedPosition();
+    int getUnlockedPosition();
 
 private:
     Servo servo;
     int servoPin;
     bool locked;
+    int currentPosition;
+    int lockedPosition;
+    int unlockedPosition;
 };
 
 #endif // SERVO_CONTROL_H

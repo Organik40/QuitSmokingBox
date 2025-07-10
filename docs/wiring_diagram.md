@@ -14,16 +14,16 @@ This document provides a wiring diagram for connecting the components of the Smo
 ### ESP32 S3 Nano to OLED Display
 - **VCC** (OLED) to **3.3V** (ESP32)
 - **GND** (OLED) to **GND** (ESP32)
-- **SDA** (OLED) to **GPIO 21** (ESP32)
-- **SCL** (OLED) to **GPIO 22** (ESP32)
+- **SDA** (OLED) to **GPIO 11** (ESP32)
+- **SCL** (OLED) to **GPIO 12** (ESP32)
 
 ### ESP32 S3 Nano to DS3218MG Servo
-- **Signal** (Servo) to **GPIO 23** (ESP32)
+- **Signal** (Servo) to **GPIO 18** (ESP32)
 - **VCC** (Servo) to **5V** (ESP32)
 - **GND** (Servo) to **GND** (ESP32)
 
 ### ESP32 S3 Nano to Push Button
-- One terminal of the **Push Button** to **GPIO 19** (ESP32)
+- One terminal of the **Push Button** to **GPIO 8** (D5) (ESP32)
 - The other terminal of the **Push Button** to **GND** (ESP32)
 
 ## Diagram

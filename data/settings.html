@@ -4,60 +4,131 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Quit Smoking Timer Box</title>
+    <meta name="i18n-title" content="settings">
     <link rel="stylesheet" href="/style.css">
+    <script src="/i18n.js"></script>
 </head>
 <body>
     <div class="container">
         <header class="header">
             <div class="logo">
                 <div class="logo-icon">⚙️</div>
-                <h1>Settings</h1>
+                <h1 data-i18n="settings">Settings</h1>
             </div>
             <nav class="nav-buttons">
-                <a href="/" class="btn-secondary">🏠 Home</a>
+                <div id="languageSelectorContainer"></div>
+                <a href="/" class="btn-secondary" data-i18n="home">🏠 Home</a>
             </nav>
         </header>
 
         <main class="main-content">
+            <!-- Language Configuration Card -->
+            <div class="card config-card">
+                <h2 data-i18n="language">🌐 Language</h2>
+                <div class="form-group">
+                    <label data-i18n="language">Language:</label>
+                    <div id="languageOptions" class="language-options">
+                        <!-- Language options will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Settings Card -->
+            <div class="card config-card">
+                <h2 data-i18n="cost_settings">💰 Cost Settings</h2>
+                <form id="costForm">
+                    <div class="form-group">
+                        <label for="productName" data-i18n="product_name">Product Name:</label>
+                        <input type="text" id="productName" name="productName" 
+                               data-i18n="product_name" placeholder="e.g., Marlboro, Lucky Strike" class="input-field">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="currency" data-i18n="currency">Currency:</label>
+                        <select id="currency" name="currency" class="dropdown">
+                            <option value="EUR">EUR (€)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="GBP">GBP (£)</option>
+                            <option value="CAD">CAD ($)</option>
+                            <option value="AUD">AUD ($)</option>
+                            <option value="JPY">JPY (¥)</option>
+                            <option value="CHF">CHF</option>
+                            <option value="SEK">SEK</option>
+                            <option value="NOK">NOK</option>
+                            <option value="DKK">DKK</option>
+                        </select>
+                    </div>
+
+                    <div class="cost-options">
+                        <div class="form-group">
+                            <label class="radio-label">
+                                <input type="radio" name="costType" value="cigarette" checked>
+                                <span class="radio-mark"></span>
+                                <span data-i18n="cigarette_cost">Cost per Cigarette</span>
+                            </label>
+                            <input type="number" id="costPerCigarette" name="costPerCigarette" 
+                                   step="0.01" min="0" value="0.50" class="input-field">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="radio-label">
+                                <input type="radio" name="costType" value="pack">
+                                <span class="radio-mark"></span>
+                                <span data-i18n="pack_cost">Cost per Pack</span>
+                            </label>
+                            <input type="number" id="costPerPack" name="costPerPack" 
+                                   step="0.01" min="0" value="10.00" class="input-field">
+                            <div class="sub-field">
+                                <label for="cigarettesPerPack" data-i18n="cigarettes_per_pack">Cigarettes per Pack:</label>
+                                <input type="number" id="cigarettesPerPack" name="cigarettesPerPack" 
+                                       min="1" max="50" value="20" class="input-field">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary" data-i18n="save_changes">💾 Save Changes</button>
+                </form>
+            </div>
+
             <!-- WiFi Configuration Card -->
             <div class="card config-card">
-                <h2>📶 WiFi Configuration</h2>
+                <h2 data-i18n="wifi_configuration">📶 WiFi Configuration</h2>
                 <form id="wifiForm">
                     <div class="form-group">
-                        <label for="wifiSSID">WiFi Network (SSID):</label>
+                        <label for="wifiSSID" data-i18n="wifi_network">WiFi Network (SSID):</label>
                         <input type="text" id="wifiSSID" name="wifiSSID" 
-                               placeholder="Enter WiFi network name" class="input-field">
+                               data-i18n="wifi_network" placeholder="Enter WiFi network name" class="input-field">
                     </div>
 
                     <div class="form-group">
-                        <label for="wifiPassword">WiFi Password:</label>
+                        <label for="wifiPassword" data-i18n="wifi_password">WiFi Password:</label>
                         <input type="password" id="wifiPassword" name="wifiPassword" 
-                               placeholder="Enter WiFi password" class="input-field">
+                               data-i18n="wifi_password" placeholder="Enter WiFi password" class="input-field">
                     </div>
 
                     <div class="form-group">
-                        <label>Current Status:</label>
+                        <label data-i18n="current_status">Current Status:</label>
                         <div class="wifi-status" id="wifiStatus">
                             <span class="status-indicator" id="wifiIndicator">🔴</span>
                             <span id="wifiStatusText">Not Connected</span>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-primary">📡 Connect WiFi</button>
+                    <button type="submit" class="btn-primary" data-i18n="connect_wifi">📡 Connect WiFi</button>
                 </form>
             </div>
 
             <!-- AI Emergency Gatekeeper Configuration Card -->
             <div class="card config-card">
-                <h2>🤖 AI Emergency Gatekeeper</h2>
+                <h2 data-i18n="ai_gatekeeper">🤖 AI Emergency Gatekeeper</h2>
                 <form id="aiForm">
                     <div class="form-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="aiEnabled" name="aiEnabled">
                             <span class="checkmark"></span>
-                            Enable AI Emergency Gatekeeper
+                            <span data-i18n="enable_ai">Enable AI Emergency Gatekeeper</span>
                         </label>
-                        <small>Requires 10-minute conversation before emergency unlock</small>
+                        <small data-i18n="ai_description">Requires conversation before emergency unlock</small>
                     </div>
 
                     <div class="ai-config" id="aiConfig" style="display: none;">
@@ -100,7 +171,40 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-primary">💾 Save AI Settings</button>
+                    <button type="submit" class="btn-primary" data-i18n="save_changes">💾 Save AI Settings</button>
+                </form>
+            </div>
+
+            <!-- Timer Mode Configuration Card -->
+            <div class="card config-card">
+                <h2 data-i18n="timer_configuration">⏰ Timer Configuration</h2>
+                <form id="timerForm">
+                    <div class="form-group">
+                        <label for="timerMode" data-i18n="timer_mode">Timer Mode:</label>
+                        <select id="timerMode" name="timerMode" class="dropdown">
+                            <option value="0" data-i18n="fixed_interval">Fixed Interval</option>
+                            <option value="1" data-i18n="gradual_reduction">Gradual Reduction</option>
+                            <option value="2" data-i18n="complete_quit">Complete Quit</option>
+                            <option value="3" data-i18n="emergency_only">Emergency Only</option>
+                            <option value="4" data-i18n="daily_schedule">Daily Schedule</option>
+                            <option value="5" data-i18n="weekly_schedule">Weekly Schedule</option>
+                            <option value="6" data-i18n="custom_schedule">Custom Schedule</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="intervalGroup">
+                        <label for="intervalMinutes" data-i18n="interval_minutes">Interval (minutes):</label>
+                        <input type="number" id="intervalMinutes" name="intervalMinutes" 
+                               min="1" max="1440" value="30" class="input-field">
+                    </div>
+
+                    <div class="form-group" id="dailyLimitGroup" style="display: none;">
+                        <label for="dailyLimit">Daily Limit:</label>
+                        <input type="number" id="dailyLimit" name="dailyLimit" 
+                               min="1" max="50" value="10" class="input-field">
+                    </div>
+
+                    <button type="submit" class="btn-primary" data-i18n="save_configuration">💾 Save Configuration</button>
                 </form>
             </div>
 
@@ -137,17 +241,10 @@
                 </form>
             </div>
 
-            <!-- Progress Configuration Card -->
+            <!-- Progress Tracking Configuration Card -->
             <div class="card config-card">
-                <h2>📊 Progress Tracking</h2>
+                <h2 data-i18n="statistics">📊 Progress Tracking</h2>
                 <form id="progressForm">
-                    <div class="form-group">
-                        <label for="cigaretteCost">Cost per cigarette ($):</label>
-                        <input type="number" id="cigaretteCost" name="cigaretteCost" 
-                               min="0" step="0.01" value="0.50" class="input-field">
-                        <small>Used to calculate money saved</small>
-                    </div>
-
                     <div class="form-group">
                         <label for="smokingGoal">Smoking Goal:</label>
                         <select id="smokingGoal" name="smokingGoal" class="dropdown">
@@ -162,7 +259,12 @@
                         <input type="date" id="startDate" name="startDate" class="input-field">
                     </div>
 
-                    <button type="submit" class="btn-primary">📈 Save Progress Settings</button>
+                    <div class="form-group">
+                        <label for="targetDate">Target Quit Date (optional):</label>
+                        <input type="date" id="targetDate" name="targetDate" class="input-field">
+                    </div>
+
+                    <button type="submit" class="btn-primary" data-i18n="save_changes">📈 Save Progress Settings</button>
                 </form>
             </div>
         </main>
@@ -178,18 +280,46 @@
         <div class="modal-content ai-modal-content">
             <h3>🤖 AI Emergency Gatekeeper</h3>
             <div id="aiConversation" class="ai-conversation"></div>
-            <div id="aiTimer" class="ai-timer">⏰ Session time: <span id="sessionTime">10:00</span></div>
-            <div id="aiInput" class="ai-input-area">
-                <input type="text" id="aiUserInput" placeholder="Type your response..." class="input-field">
-                <button id="aiSend" class="btn-primary">Send</button>
-            </div>
-            <div class="ai-actions">
-                <button id="aiCancel" class="btn-secondary">Cancel</button>
-                <button id="aiComplete" class="btn-primary" disabled>Complete Session</button>
+            <div class="ai-input-section">
+                <input type="text" id="aiUserInput" placeholder="Type your message..." class="input-field">
+                <button id="aiSendButton" class="btn-primary">Send</button>
+                <button id="aiCloseButton" class="btn-secondary">Close</button>
             </div>
         </div>
     </div>
 
     <script src="/settings.js"></script>
+    <script>
+        // Initialize language selector
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof i18n !== 'undefined') {
+                const container = document.getElementById('languageSelectorContainer');
+                if (container) {
+                    container.innerHTML = i18n.createLanguageSelector();
+                }
+                
+                // Populate language options
+                const languageOptions = document.getElementById('languageOptions');
+                if (languageOptions && i18n.getSupportedLanguages) {
+                    const languages = i18n.getSupportedLanguages();
+                    languageOptions.innerHTML = languages.map(lang => `
+                        <label class="language-option">
+                            <input type="radio" name="selectedLanguage" value="${lang.code}" 
+                                   ${lang.code === i18n.getCurrentLanguage() ? 'checked' : ''}>
+                            <span class="radio-mark"></span>
+                            ${lang.flag} ${lang.name}
+                        </label>
+                    `).join('');
+                    
+                    // Add event listeners for language change
+                    languageOptions.addEventListener('change', function(e) {
+                        if (e.target.name === 'selectedLanguage') {
+                            i18n.setLanguage(e.target.value);
+                        }
+                    });
+                }
+            }
+        });
+    </script>
 </body>
 </html>

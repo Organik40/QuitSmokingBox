@@ -37,16 +37,16 @@ This guide provides step-by-step instructions on how to assemble the Quit Smokin
 1. **OLED Display**:
    - Connect the VCC pin of the OLED to the 3.3V pin on the ESP32.
    - Connect the GND pin of the OLED to a GND pin on the ESP32.
-   - Connect the SCL pin of the OLED to GPIO 22 on the ESP32.
-   - Connect the SDA pin of the OLED to GPIO 21 on the ESP32.
+   - Connect the SCL pin of the OLED to GPIO 12 on the ESP32.
+   - Connect the SDA pin of the OLED to GPIO 11 on the ESP32.
 
 2. **Servo**:
    - Connect the red wire (VCC) of the servo to the 5V pin on the ESP32.
    - Connect the brown wire (GND) of the servo to a GND pin on the ESP32.
-   - Connect the yellow wire (signal) of the servo to GPIO 23 on the ESP32.
+   - Connect the yellow wire (signal) of the servo to GPIO 18 on the ESP32.
 
 3. **Push Button**:
-   - Connect one terminal of the push button to GPIO 19 on the ESP32.
+   - Connect one terminal of the push button to GPIO 8 (D5) on the ESP32.
    - Connect the other terminal of the push button to GND.
 
 ### Step 4: Assembling the Box
